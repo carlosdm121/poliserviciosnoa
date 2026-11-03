@@ -1,0 +1,1789 @@
+// PoliserviciosNOA — modelo de datos
+//
+// Decisiones de diseño que conviene no olvidar al tocar este archivo:
+// 1. NO hay KYC ni datos de DNI. La única verificación es WhatsApp
+//    (whatsappVerifiedAt). Ver docs/superpowers/specs/2026-10-09-poliservicios-noa-fundacion-design.md
+// 2. Los límites (10 imágenes, 2 rubros, 4 subcategorías, 8 ciudades) se
+//    validan con bloqueo de fila FOR UPDATE en services/, no acá con CHECK.
+// 3. Los archivos de Profile con datos personales se anonimizan al dar de baja
+//    (ver módulo M8); los pagos se conservan por plazo fiscal.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  PROFESSIONAL
+  CLIENT
+  /// Revisa perfiles, moderación, reclamos y reportes. No ve dinero ni
+  /// configuración: el panel de administración aplica esa matriz en cada
+  /// página y en cada acción.
+  MODERADOR
+  ADMIN
+}
+
+enum Province {
+  TUCUMAN
+  SALTA
+  SANTIAGO_DEL_ESTERO
+  CATAMARCA
+  JUJUY
+}
+
+enum ProfileType {
+  PERSON
+  COMPANY
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  APPROVED
+  REJECTED
+  PENDING
+  REFUNDED
+  CHARGED_BACK
+}
+
+/**
+ * Estado de un comprobante fiscal.
+ * `PENDING` y `FAILED` son estados de la cola de emisión: la factura existe en
+ * nuestra base pero ARCA todavía no la autorizó. `ISSUED` tiene CAE. `VOIDED`
+ * fue anulada con una nota de crédito (un CAE no se borra).
+ */
+enum InvoiceStatus {
+  PENDING
+  ISSUED
+  FAILED
+  VOIDED
+}
+
+/**
+ * Tipo de comprobante. Se guarda como letra porque es lo que se imprime y lo
+ * que lee el contador; el código numérico de ARCA (1, 6, 11) se deriva al
+ * emitir y no se persiste: es una traducción, no un dato.
+ */
+enum TipoComprobante {
+  A
+  B
+  C
+}
+
+enum ReportReason {
+  DUDOSO
+  DATO_FALSO
+  CONTENIDO_INADECUADO
+  ESTAFO
+  OTRO
+}
+
+enum ReportStatus {
+  PENDIENTE
+  EN_REVISION
+  RESUELTO
+  DESCARTADO
+}
+
+/**
+ * Estado de un intento de verificación del número de WhatsApp.
+ * Vive en su propio modelo y no como campos en `Profile` porque los intentos
+ * son varios: el profesional puede pedir código, expirarlo, equivocarse de
+ * número y pedir otro. Guardar solo el último en `Profile` borra el rastro de
+ * los intentos fallidos, que es justo lo que sirve para detectar que alguien
+ * está probando números ajenos.
+ */
+enum WhatsAppVerificationStatus {
+  /// Código generado, esperando que el titular lo envíe.
+  PENDING
+  /// El titular confirmó desde el número correcto.
+  VERIFIED
+  /// Pasaron los 15 minutos.
+  EXPIRED
+  /// El profesional lo canceló o cargó otro número.
+  CANCELED
+  /// Se alcanzó el máximo de intentos con remitentes que no corresponden.
+  LOCKED
+}
+
+/**
+ * Tipo de persona ante ARCA.
+ * Decide qué documento se pide y de qué tipo: una empresa no puede facturar con
+ * un DNI, y una persona humana que factura como monotributo sí.
+ */
+enum TipoPersonaFiscal {
+  PERSONA_HUMANA
+  EMPRESA
+}
+
+/**
+ * Condición frente al IVA.
+ * Los valores son los que ARCA usa, porque es lo que el contador y el proveedor
+ * de facturación esperan y renombrarlos rompe la importación. Ojo con el
+ * formato: en la base van en mayúsculas con guion bajo y el proveedor de
+ * facturación los traduce a la forma que pide (eso es trabajo del módulo 2.5,
+ * no de acá).
+ */
+enum CondicionIva {
+  RESPONSABLE_INSCRIPTO
+  RESPONSABLE_MONOTRIBUTO
+  EXENTO
+  LIBERADO
+  CONSUMIDOR_FINAL
+}
+
+/**
+ * Datos fiscales del profesional.
+ * **No es verificación de identidad.** D1 descartó el KYC: acá no se busca
+ * demostrar quién es, sino tener los datos que necesita un comprobante. Por eso
+ * la única insignia pública sigue siendo "WhatsApp verificado" y esto nunca se
+ * publica ni se muestra.
+ * Vive en una tabla aparte y no como columnas de `Profile` por una razón
+ * concreta: `Profile` se lee en cada card de búsqueda y en cada visita al
+ * perfil público, y un `findUnique` de Prisma trae todas las columnas
+ * escalares. Con los datos fiscales como columnas, el DNI de cada profesional
+ * estaría cargado en cada búsqueda del sitio sin que nadie lo pidiera. Como
+ * relación, solo lo traen las consultas que lo piden, y son dos.
+ * El `documento` va en claro porque el contador y la facturación lo necesitan, y
+ * el `documentoHash` impide que dos perfiles distintos facturen con la misma
+ * persona —el mismo criterio que `Profile.cuitHash` (ver D3).
+ */
+model FiscalData {
+  id        String  @id @default(cuid())
+  profileId String  @unique
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  tipoPersona TipoPersonaFiscal
+
+  // Nombre o razón social, tal como figura en la constancia de inscripción.
+  nombreORazonSocial String
+
+  /**
+   * CUIT (11 dígitos), CUIL (11 dígitos) o DNI (8 dígitos), sin guiones.
+   * Qué se acepta depende de `tipoPersona`: una empresa exige 33 o 34, y una
+   * persona humana 30 o un DNI de 8. La regla vive en
+   * `src/schemas/suscripcion.ts` y se valida de nuevo en el servidor.
+   */
+  documento     String
+  documentoHash String? @unique
+
+  condicionIva    CondicionIva
+  domicilioFiscal String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Estado de revisión de un perfil.
+ * El enum reemplaza a los booleanos `isSuspended` e `isHiddenByAdmin`.
+ */
+enum ModerationStatus {
+  /// Alta recién hecha. Se publica igual, salvo que esté activada la bandera
+  /// `requireManualApproval`, que deja todo en PENDING_REVIEW hasta que el
+  /// administrador lo apruebe.
+  PENDING_REVIEW
+  /// Revisado y aceptado.
+  APPROVED
+  /// Rechazado en la revisión.
+  REJECTED
+  /// Suspendido por fraude,asuplantación o reclamo.
+  SUSPENDED
+}
+
+/**
+ * Tipo de identificador bloqueado.
+ * Se bloquea el HASH, nunca el valor. La lista no guarda teléfonos ni emails:
+ * guarda la salida del HMAC, que sirve para comparar y no para recuperar el
+ * dato. Si la base se filtra, no expone los datos personales de quien fue
+ * bloqueado.
+ */
+enum BlockedIdentifierType {
+  WHATSAPP_HASH
+  EMAIL
+  CUIT_HASH
+}
+
+/**
+ * Señales de riesgo.
+ * No bloquean nada por sí solas: se acumulan y el administrador las mira. El
+ * error de este tipo de sistema es bloquear por heurística, que deja afuera a
+ * profesionales legítimos y hace que la plataforma parezca desconfiar de
+ * todos. Cada señal apunta a algo concreto que alguien tiene que mirar.
+ */
+enum RiskSignalType {
+  /// Email de un dominio desechable.
+  EMAIL_DESECHABLE
+  /// Varias altas desde la misma IP en poco tiempo.
+  MULTIPLES_ALTAS_MISMA_IP
+  /// La descripción trae teléfono, enlace o usuario externo.
+  DESCRIPCION_CON_CONTACTO_EXTERNO
+  /// El titular del número verificado dijo que no era él.
+  NO_FUI_YO
+  /// Varios clientes reportaron el perfil.
+  REPORTES_MULTIPLES
+  /// Un perfil con más de un día de vida cambió su CUIT. Es el patrón de las
+  /// empresas que se hacen pasar por empresa para pasar una revisión.
+  CAMBIO_DE_CUIT_TARDIO
+  /// La sesión del perfil no viene de la misma conexión que el alta.
+  CAMBIO_DE_IP_POSTERIOR_AL_ALTA
+  /// Un mismo cliente votó varios perfiles en poco tiempo.
+  MUCHOS_VOTOS_MISMO_CLIENTE
+  /// Varios clientes con email desechable votaron el mismo perfil.
+  VOTOS_DOMINIO_DESECHABLE
+}
+
+// ---------------------------------------------------------------------------
+// Identidad
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String?
+  phone         String?
+  role          UserRole  @default(PROFESSIONAL)
+  image         String?
+
+  // Google OAuth devuelve este identificador; se usa para vincular cuentas
+  // del cliente que entran con Google en vez de magic link.
+  googleSub String?
+
+  /**
+   * Hash de la IP del alta, con el pepper del entorno.
+   * Existe solo para la señal `MULTIPLES_ALTAS_MISMA_IP`: cinco cuentas desde
+   * la misma conexión en un día es un patrón, no una coincidencia. Se hashea
+   * porque la IP es un dato personal y no hay ninguna razón operativa para
+   * tenerla en claro.
+   */
+  signupIpHash String?
+
+  /**
+   * El cliente pidió no recibir más invitaciones a valorar.
+   * El enlace firmado de baja del email lo pone en true sin pedir login.
+   * Una vez dado de baja, el cron del módulo 3.5 deja de enviarle invitaciones.
+   */
+  voteInvitesOptOut Boolean @default(false)
+
+  /**
+   * Versión de sesión. Se incrementa al cambiar la contraseña, bloquear al
+   * usuario o cerrar sesión en todos los dispositivos. Los JWT anteriores
+   * traen una versión vieja y `requireUser` los rechaza: cierra sesiones
+   * activas en todos los dispositivos.
+   */
+  sessionVersion Int @default(0)
+
+  accounts       Account[]
+  sessions       Session[]
+  profile        Profile?
+  contactIntents ContactIntent[]
+  votes          ProfileVote[]
+  voteInvites    VoteInvite[]
+  reclamos       Reclamo[]
+
+  // Tickets de soporte abiertos por este usuario (si tiene sesión).
+  supportTickets SupportTicket[]
+  // Tickets asignados a este integrante del equipo de soporte.
+  ticketsAsignados SupportTicket[] @relation("SoporteAsignado")
+  // Respuestas que escribió este integrante en tickets de soporte.
+  ticketRespuestas TicketRespuesta[]
+  passwordResetTokens PasswordResetToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // @@unique evita que dos cuentas del mismo Google breathableen en el sistema
+  @@unique([googleSub])
+  @@index([role])
+  @@index([signupIpHash, createdAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo: grupos, rubros, subcategorías, ciudades
+// ---------------------------------------------------------------------------
+
+model CategoryGroup {
+  id        String @id @default(cuid())
+  name      String
+  slug      String @unique
+  icon      String
+  sortOrder Int    @default(0)
+
+  categories Category[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model Category {
+  id        String @id @default(cuid())
+  groupId   String
+  name      String
+  slug      String @unique
+  icon      String
+  sortOrder Int    @default(0)
+
+  // Un rubro sin perfiles se marca inactive y no aparece en la home.
+  // isActive se combina con el conteo real de perfiles para decidir
+  // "próximamente" (módulo M10).
+  isActive Boolean @default(true)
+
+  // Rubros regulados (gasista, contador, abogado, veterinario, guía).
+  // La matrícula se muestra como "informada", nunca como verificada,
+  // salvo revisión manual del admin.
+  requiresLicense Boolean @default(false)
+  licenseLabel    String?
+
+  group         CategoryGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  subcategories Subcategory[]
+  profiles      ProfileCategory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupId, sortOrder])
+  @@index([isActive])
+}
+
+/**
+ * Tamaño del equipo de una empresa.
+ * No va como texto libre porque después hay que filtrar por tamaño ("empresas de
+ * más de 20 personas"), y con un `String` cada uno escribe el número distinto.
+ */
+enum TeamSize {
+  T1_5
+  T6_20
+  T21_50
+  T50_PLUS
+}
+
+model Subcategory {
+  id         String  @id @default(cuid())
+  categoryId String
+  name       String
+  slug       String
+  sortOrder  Int     @default(0)
+  isActive   Boolean @default(true)
+
+  category Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  profiles ProfileSubcategory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // El slug es único dentro de su rubro, no global: "instalacion" puede
+  // existir en plomería y en electricidad sin conflicto.
+  @@unique([categoryId, slug])
+  @@index([categoryId, sortOrder])
+}
+
+model City {
+  id        String   @id @default(cuid())
+  province  Province
+  name      String
+  slug      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  profiles Profile[]         @relation("BaseCity")
+  coverage ProfileCoverage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([province, slug])
+  @@index([province, sortOrder])
+}
+
+// ---------------------------------------------------------------------------
+// Perfil
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type ProfileType @default(PERSON)
+  name String
+  slug String      @unique
+
+  // --- Empresa (nullable, se usa solo si type = COMPANY) ---
+  companyName String?
+  tradeName   String?
+  // CUIT en claro es dato fiscal que el contador necesita; el hash evita
+  // que dos perfiles distintos usen el mismo CUIT.
+  cuit        String?
+  cuitHash    String?   @unique
+  logoUrl     String?
+  teamSize    TeamSize?
+  yearFounded Int?
+  website     String?
+
+  /**
+   * Clave del documento de empresa en almacenamiento PRIVADO.
+   * Nunca es una URL pública: la constancia de inscripción lleva el CUIT y
+   * datos fiscales que no tienen por qué estar servidos a anyone. Se borra al
+   * aprobar o rechazar la revisión, según la política de retención del módulo
+   * 4.4.
+   */
+  companyDocumentKey String?
+
+  // Cuándo se revisó el documento a mano y por quién. La insignia "Empresa
+  // verificada" sale de acá, no de que el CUIT tenga el dígito bien puesto:
+  // el dígito verificador no prueba que exista la empresa.
+  companyDocumentReviewedAt DateTime?
+  companyVerifiedAt         DateTime?
+  companyVerifiedBy         String?
+
+  // Motivo del rechazo de la constancia. Se guarda para que el profesional
+  // sepa qué corregir y para que el panel no muestre un documento que
+  // desapareció sin explicación.
+  companyRejectionReason String?
+
+  // --- Rubros regulados ---
+  // Se muestra como "Matrícula informada", no verificada.
+  licenseNumber String?
+
+  // Revisión manual de la matrícula. La insignia sigue diciendo "informada":
+  // esto solo deja constancia de que alguien la miró.
+  licenseReviewedAt DateTime?
+  licenseReviewedBy String?
+
+  // --- Contacto ---
+  // Formato E.164 sin signos: 5493811234568.
+  //
+  // El número va en claro porque sin él no hay forma de armar el enlace wa.me
+  // del botón de contacto, que es la conversión del portal. Se protege lo que
+  // sí se puede proteger: `whatsappHash` es el que se consulta para detectar
+  // duplicados y lista de bloqueo, y el que se loguea enmascarado.
+  //
+  // Los dos son únicos de forma independiente: el hash cambia si cambia el
+  // pepper y el claro no, y tenerlos separados permite saber cuál de los dos
+  // chocó cuando el índice salta.
+  whatsappE164       String    @unique
+  whatsappHash       String?   @unique
+  whatsappVerifiedAt DateTime?
+  // Último mensaje de la plataforma enviado a este número. Se usa para la
+  // detección de suplantación del módulo 1.7 ("NO FUI YO").
+  whatsappVerifiedBy String?
+
+  description String?
+  // Texto corto para la card en búsqueda; se recorta con line-clamp.
+  shortBio    String?
+
+  // --- Ubicación ---
+  baseCityId String?
+  baseCity   City?   @relation("BaseCity", fields: [baseCityId], references: [id], onDelete: SetNull)
+
+  // Si atiende toda la provincia, aparece en todas sus ciudades.
+  coversWholeProvince  Boolean    @default(false)
+  coversOtherProvinces Province[]
+
+  // --- Estado ---
+  isPublished       Boolean @default(false)
+  // Motivo por el que se despublicó, para explicárselo al profesional
+  // en el panel en lugar de mostrar un perfil vacío sin explicación.
+  unpublishedReason String?
+
+  /**
+   * Estado de la revisión. Es el ÚNICO dueño del estado de moderación.
+   * Antes eran dos booleanos (`isSuspended` e `isHiddenByAdmin`) y ya estaban
+   * en los cuatro estados posibles, pero expresados como combinaciones: nadie
+   * sabe qué hacer con `isSuspended=false, isHiddenByAdmin=true`, y cualquier
+   * módulo nuevo tiene que interpretar la combinación. Con un enum no hay
+   * combinación imposible.
+   */
+  moderationStatus ModerationStatus @default(PENDING_REVIEW)
+
+  // Motivo de la suspensión o del rechazo. Se le muestra al profesional: una
+  // suspensión sin explicación genera un mensaje a soporte que hay que contestar
+  // a mano.
+  moderationReason String?
+
+  // Quién revisó el perfil y cuándo. Con la bandera `requireManualApproval`
+  // apagada, el valor por defecto APPROVED lo pone la alta automática.
+  moderationReviewedAt DateTime?
+  moderationReviewedBy String?
+
+  // --- Métricas ---
+  // Desnormalizadas para ordenar rápido; se actualizan en la misma
+  // transacción que crea el registro que las incrementa, y hay scripts
+  // de reconciliación que las recalculan desde la fuente real.
+  viewsCount     Int @default(0)
+  contactsCount  Int @default(0)
+  whatsappClicks Int @default(0)
+  heartsCount    Int @default(0)
+
+  // --- Contenido ---
+  images         Image[]
+  categories     ProfileCategory[]
+  subcategories  ProfileSubcategory[]
+  coverage       ProfileCoverage[]
+  subscription   Subscription?
+  reports        Report[]
+  verifications  WhatsAppVerification[]
+  contactIntents ContactIntent[]
+  votes          ProfileVote[]
+  reclamos       Reclamo[]
+  dailyStats     ProfileDailyStat[]
+
+  /**
+   * Datos fiscales para facturar.
+   * Relación y no columnas por lo que dice el comentario de `FiscalData`: el
+   * DNI no tiene por qué viajar en cada lectura de `Profile`.
+   */
+  fiscalData FiscalData?
+
+  // Fecha del último cobro aprobado; se usa para ordenar por actividad
+  // reciente sin depender de updatedAt (que cambia por cualquier edición).
+  lastPaymentAt DateTime?
+
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  riskSignals   RiskSignal[]
+  cancellations CancellationRequest[]
+  voteInvites   VoteInvite[]
+  dataRequests  DataRequest[]
+
+  // Índice compuesto de la consulta caliente de búsqueda: filtra por
+  // publicación y ordena por actividad.
+  @@index([isPublished, lastPaymentAt])
+  @@index([baseCityId])
+  @@index([whatsappVerifiedAt])
+}
+
+/**
+ * Contacto concretado por un cliente identificado.
+ * El clic anónimo no crea fila: no hay a quién atribuirlo y guardar IP o
+ * huella para inventar una identidad sería recolectar datos personales que no
+ * hacen falta. Solo se registra cuando hay sesión CLIENT, y sirve para dos
+ * cosas: contar contactos reales y habilitar el voto después de 24 horas.
+ */
+model ContactIntent {
+  id String @id @default(cuid())
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   User   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  reclamos Reclamo[]
+
+  // La consulta de "¿ya contactó este cliente en las últimas 24 h?" y la de
+  // "¿puede votar?" salen de estos dos índices.
+  @@index([clientId, profileId, createdAt])
+  @@index([profileId, createdAt])
+}
+
+/**
+ * Corazón de confianza de un cliente sobre un perfil.
+ * Un voto por cliente y perfil. Retirarlo borra la fila: guardar un booleano
+ * de "votó y se arrepintió" no aporta nada y complica todos los conteos.
+ */
+model ProfileVote {
+  id String @id @default(cuid())
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   User   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, clientId])
+  @@index([profileId, createdAt])
+  @@index([clientId, createdAt])
+}
+
+/**
+ * Invitación a valorar enviada por email a un cliente.
+ * Una invitación por par (cliente, profesional): el índice único evita
+ * reenviar a quien ya recibió una. El cron de 3.5 la crea tras cada envío.
+ */
+model VoteInvite {
+  id        String   @id @default(cuid())
+  clientId  String
+  profileId String
+  sentAt    DateTime @default(now())
+
+  client  User    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  // Una invitación por cliente y perfil.
+  @@unique([clientId, profileId])
+  // Consulta del cron: invitaciones de esta semana por cliente (límite 3).
+  @@index([clientId, sentAt])
+  // Consulta del cron: invitaciones enviadas a un perfil.
+  @@index([profileId, sentAt])
+}
+
+/**
+ * Métricas agregadas por día.
+ * No reemplazan los contadores del perfil: son la serie histórica para saber
+ * si un perfil crece o se apaga. Guardar el día y no el visitante es la
+ * diferencia entre una estadística y un perfil de comportamiento.
+ */
+model ProfileDailyStat {
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  date           DateTime @db.Date
+  views          Int      @default(0)
+  whatsappClicks Int      @default(0)
+
+  @@id([profileId, date])
+  @@index([date])
+}
+
+model ProfileCategory {
+  profileId  String
+  categoryId String
+
+  // Exactamente una por perfil con isPrimary = true.
+  isPrimary Boolean @default(false)
+
+  profile  Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([profileId, categoryId])
+  @@index([categoryId])
+}
+
+model ProfileSubcategory {
+  profileId     String
+  subcategoryId String
+
+  profile     Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  subcategory Subcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([profileId, subcategoryId])
+  @@index([subcategoryId])
+}
+
+// Zonas de cobertura. La ciudad base cuenta como cubierta automáticamente
+// y no necesita estar en esta tabla.
+model ProfileCoverage {
+  profileId String
+  cityId    String
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  city    City    @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([profileId, cityId])
+  @@index([cityId])
+}
+
+model Image {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  // publicId de Cloudinary. Se guarda para poder borrar el recurso real;
+  // la URL sola no alcanza.
+  publicId String
+  url      String
+  width    Int
+  height   Int
+
+  // Orden manual de la galería (drag & drop). La primera es la foto de la card.
+  sortOrder Int @default(0)
+
+  /**
+   * Oculta por el administrador.
+   * No borra: la imagen sigue ocupando lugar en el perfil y se puede
+   * desocultar. Borrarla sería irreversible y una moderación equivocada
+   * (una foto que parece ajena pero era del trabajo del cliente) no puede
+   * dejar al profesional sin poder defenderse.
+   * `evaluarPublicacion` cuenta estas imágenes: un perfil con 3 fotos y las 3
+   * ocultas sigue sin cumplir el requisito de "al menos una foto", porque lo
+   * que ve el cliente es lo único que importa para decidir si publica.
+   */
+  isHidden Boolean @default(false)
+
+  // Por qué y quién. Sin motivo escrito, un ocultado es indistinguible de un
+  // error de carga, igual que un bloqueo sin motivo (ver BlockedIdentifier).
+  hiddenReason String?
+  hiddenAt     DateTime?
+  hiddenBy     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([profileId, sortOrder])
+  @@index([profileId, isHidden])
+}
+
+// ---------------------------------------------------------------------------
+// Verificación de titularidad de WhatsApp
+// ---------------------------------------------------------------------------
+
+/**
+ * Un intento de verificar que el profesional controla el número.
+ * Reemplaza al KYC: no se pide DNI ni documento, se pide que mande un código
+ * desde el número mismo. Ver `decisions.md` D1.
+ * Cada intento es una fila. Se conservan todas porque el historial de intentos
+ * fallidos es la señal que detecta a alguien probando números ajenos.
+ */
+model WhatsAppVerification {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  // El número tal como lo normalizó el servidor, no como lo escribió el
+  // usuario. Es el número cuya titularidad se está probando.
+  phoneE164 String
+
+  // HMAC del código de 6 caracteres. Nunca el código en claro: si alguien lee
+  // la base, no le sirve para verificar un número ajeno, solo para reutilizar un
+  // código que ya se usó (y que ya no sirve, porque el uso lo marca VERIFIED).
+  codeHash String
+
+  expiresAt DateTime
+
+  status WhatsAppVerificationStatus @default(PENDING)
+
+  // Intentos con remitentes que NO corresponden al número. Al llegar al
+  // máximo la verificación pasa a LOCKED. Es la defensa contra probar el
+  // código de otra persona.
+  attempts Int @default(0)
+
+  /**
+   * Identificador del mensaje de WhatsApp que confirmó la verificación.
+   * Es único: es la barrera contra el replay. Meta reintenta un webhook si no
+   * recibe 200, y un webhook repetido con este campo ya tomado no verifica
+   * dos veces. La unicidad la impone la base, no el código.
+   */
+  messageId String? @unique
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Índice de la consulta del webhook: buscar el PENDING de un perfil, y el
+  // PENDING de un hash de código. Es la ruta caliente de cada mensaje que
+  // entra, así que tiene que ser corto.
+  @@index([profileId, status])
+  @@index([codeHash, status])
+}
+
+// ---------------------------------------------------------------------------
+// Suscripción y pagos
+// ---------------------------------------------------------------------------
+
+model Plan {
+  id           String   @id @default(cuid())
+  name         String
+  amount       Decimal  @db.Decimal(10, 2)
+  currency     String   @default("ARS")
+  isActive     Boolean  @default(true)
+  vigenteDesde DateTime @default(now())
+
+  subscriptions Subscription[]
+  priceChanges  PriceChange[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id        String  @id @default(cuid())
+  profileId String  @unique
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  // Monto congelado con el que cobra hoy este suscriptor.
+  // Si sube el precio del plan, los que ya pagando mantienen el suyo
+  // salvo que el admin aplique el aumento (módulo M9).
+  planAmount Decimal @db.Decimal(10, 2)
+
+  /**
+   * El suscriptor pidió conservar su precio (socio fundador, promoción).
+   * Vive acá y no solo en `PriceChange.isFrozen` porque el congelamiento
+   * sobrevive a la renovación: si solo estuviera en el registro del cambio de
+   * precio, al aplicarse el primer cambio quedaría sin efecto y el socio
+   * fundador pagaría el precio nuevo. Es el campo que decide qué monto se
+   * congela en la siguiente alta (ver `precioDeAlta` en
+   * `services/suscripcion.ts`).
+   */
+  priceFrozen Boolean @default(false)
+
+  status SubscriptionStatus @default(PENDING)
+
+  // Identificador del preapproval de Mercado Pago. UNIQUE porque una
+  // suscripción activa por perfil y un preapproval no puede repurparse.
+  mpPreapprovalId String? @unique
+
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+
+  // Cancelación programada: el perfil sigue visible hasta que termine
+  // el período ya pagado, y recién ahí se despublica.
+  cancelAtPeriodEnd Boolean   @default(false)
+  cancelledAt       DateTime?
+
+  /**
+   * Cuándo empezó a fallar el cobro.
+   * Informativo: dice desde cuándo la suscripción está en atraso, y es lo que
+   * se muestra al profesional. **No** es la fecha en que se despublica.
+   */
+  pastDueSince DateTime?
+
+  /**
+   * Hasta cuándo sigue publicado el perfil pese al pago rechazado.
+   * Lo calcula el webhook (módulo 2.4) con `env.payment.graceDays` y lo consume
+   * el cron (2.7). Va separado de `pastDueSince` a propósito: son dos
+   * preguntas distintas —cuándo empezó el problema y hasta cuándo aguanta— y
+   * meter la segunda en la primera obliga a recalcularla cada vez que se lee.
+   */
+  graceUntil DateTime?
+
+  /**
+   * Versión de los términos aceptada y fecha.
+   * Por suscripción y no por perfil: cada compra acepta los términos que
+   * estaban vigentes ese día, y si el año que viene cambia el texto, el
+   * registro del año pasado tiene que seguir diciendo cuál era. Sin esto solo
+   * queda "aceptó algo", que no prueba nada.
+   */
+  termsVersion    String?
+  termsAcceptedAt DateTime?
+
+  payments     Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Índice del cron: busca ACTIVE por fecha de vencimiento.
+  @@index([status, currentPeriodEnd])
+}
+
+model Payment {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  // Identificador del pago en Mercado Pago. UNIQUE: el webhook puede
+  // llegar repetido y no debe generar dos pagos.
+  mpPaymentId String        @unique
+  amount      Decimal       @db.Decimal(10, 2)
+  currency    String        @default("ARS")
+  status      PaymentStatus
+
+  // Comisión real de Mercado Pago, para mostrar el ingreso neto en admin.
+  // Sin esto no se puede calcular el margen real después de la pasarela.
+  feeAmount Decimal? @db.Decimal(10, 2)
+  netAmount Decimal? @db.Decimal(10, 2)
+
+  paidAt        DateTime?
+  refundedAt    DateTime?
+  failureReason String?
+
+  /**
+   * Comprobante emitido por este pago. A lo sumo uno: `Invoice.paymentId` es
+   * único. Un pago rechazado nunca tiene factura.
+   */
+  invoice Invoice?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subscriptionId, createdAt])
+  @@index([status])
+}
+
+/**
+ * Factura electrónica de un pago aprobado.
+ * La fila se crea al confirmarse el pago, antes de hablar con ARCA. Eso es
+ * deliberado: si el proveedor de facturación está caído, el pago no se pierde
+ * ni la suscripción se rompe; la fila queda en la cola (`PENDING`/`FAILED`) y
+ * se reintenta después. La relación con `Payment` es uno a uno por el índice
+ * único de `paymentId`, y es lo que hace idempotente un webhook repetido.
+ * `numero` se reserva ANTES de llamar a ARCA y se persiste. Si el proceso muere
+ * después de que ARCA autorizó pero antes de guardar el CAE, el reintento usa
+ * el mismo número: el peor caso es un error de "comprobante ya existe", no una
+ * factura duplicada.
+ */
+model Invoice {
+  id        String  @id @default(cuid())
+  paymentId String  @unique
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  tipoComprobante TipoComprobante
+  puntoVenta      Int
+  // Fecha del comprobante (CbteFch). Se congela al encolar.
+  fecha           DateTime
+
+  /**
+   * Datos del receptor congelados al emitir.
+   * No se leen de `FiscalData` al generar el PDF: el profesional puede cambiar
+   * sus datos después, y un comprobante ya emitido tiene que imprimir lo que
+   * ARCA autorizó, no lo que el perfil dice hoy.
+   */
+  receptorNombre       String
+  receptorDocumento    String?
+  receptorCondicionIva CondicionIva?
+  descripcion          String
+  cuitEmisor           String?
+
+  // Se completan cuando ARCA autoriza.
+  numero   Int?
+  cae      String?
+  caeVence DateTime?
+
+  neto  Decimal @db.Decimal(10, 2)
+  iva   Decimal @db.Decimal(10, 2)
+  total Decimal @db.Decimal(10, 2)
+
+  // Ruta interna del PDF (generado por nosotros, sin dependencias).
+  pdfUrl String?
+
+  status InvoiceStatus @default(PENDING)
+
+  // Cola de emisión: sin infraestructura externa, la base es la cola.
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime?
+  lastError     String?
+
+  issuedAt DateTime?
+  voidedAt DateTime?
+
+  creditNote CreditNote?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Consulta del cron: pendientes cuyo próximo intento ya venció.
+  @@index([status, nextAttemptAt])
+  // Reporte mensual del contador.
+  @@index([fecha])
+}
+
+/**
+ * Nota de crédito que anula una factura.
+ * En ARCA una factura no se borra: se anula con una nota de crédito del mismo
+ * tipo y por el mismo importe. Por eso este modelo es la implementación real de
+ * `anularFactura`, y el reembolso de Mercado Pago lo que dispara.
+ * `invoiceId` es único: una factura se anula una sola vez. Si Mercado Pago
+ * manda dos veces el evento de reembolso, la segunda choca contra el índice y
+ * no emite una segunda nota.
+ */
+model CreditNote {
+  id        String  @id @default(cuid())
+  invoiceId String  @unique
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  // Pago que se reembolsó. Puede ser el mismo pago de la factura; se guarda
+  // como referencia por si a futuro se anula por otro motivo.
+  mpPaymentId String?
+  motivo      String
+
+  tipoComprobante TipoComprobante
+  puntoVenta      Int
+  fecha           DateTime
+
+  numero   Int?
+  cae      String?
+  caeVence DateTime?
+
+  neto  Decimal @db.Decimal(10, 2)
+  iva   Decimal @db.Decimal(10, 2)
+  total Decimal @db.Decimal(10, 2)
+
+  status InvoiceStatus @default(PENDING)
+
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime?
+  lastError     String?
+
+  issuedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([fecha])
+}
+
+/**
+ * Aumento de precio programado de un plan.
+ *
+ * Vinculado al `Plan` y no a una suscripción: un aumento rige para todos los
+ * suscriptores de ese plan. El estado explícito evita que un aumento se aplique
+ * dos veces o se envíe el aviso dos veces.
+ */
+enum PriceChangeEstado {
+  /// Creado, esperando la fecha de aviso.
+  PROGRAMADO
+  /// Ya se envió el aviso a los suscriptores; aún no se aplicó.
+  AVISADO
+  /// Se aplicó el monto nuevo a las suscripciones activas.
+  APLICADO
+  /// Se canceló antes de aplicarse.
+  CANCELADO
+}
+
+model PriceChange {
+  id        String  @id @default(cuid())
+  planId    String
+  plan      Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  oldAmount Decimal @db.Decimal(10, 2)
+  newAmount Decimal @db.Decimal(10, 2)
+
+  // Cuándo se avisa a los suscriptores (mínimo 30 días antes de aplicar).
+  fechaAviso    DateTime
+  // Cuándo se aplica el monto nuevo a las suscripciones activas.
+  fechaAplicacion DateTime
+
+  estado PriceChangeEstado @default(PROGRAMADO)
+
+  // Motivo del aumento, para el email y el historial.
+  motivo String?
+  // Quién lo programó.
+  creadoPor String?
+
+  // Cuándo se envió el aviso y cuándo se aplicó realmente.
+  avisadaEn   DateTime?
+  aplicadaEn  DateTime?
+  canceladaEn DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estado])
+  @@index([fechaAplicacion])
+  @@index([planId])
+}
+
+// ---------------------------------------------------------------------------
+// Operación
+// ---------------------------------------------------------------------------
+
+// Idempotencia de webhooks: si el evento ya está registrado, se responde
+// 200 sin volver a procesar. Sin esta tabla, un reenvío duplica pagos.
+model WebhookEvent {
+  id          String    @id
+  provider    String
+  eventType   String
+  processedAt DateTime?
+  payloadHash String?
+  error       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([provider, processedAt])
+}
+
+// Registro de emails enviados, con restricción única por clave lógica
+// para que un cron que corre dos veces no mande el mismo aviso.
+model EmailLog {
+  id        String  @id @default(cuid())
+  profileId String?
+  email     String
+
+  // Clave lógica del email, p. ej. "aviso_5dias" o "expirada".
+  // @@unique sobre el conjunto evita duplicados en el cron.
+  template String
+
+  // Referencia al objeto del email para poder reconstruir la clave única
+  // cuando el mismo template se manda por distintos motivos.
+  dedupeKey String
+
+  // Errores de Resend, no contenido: nunca guardamos el cuerpo del email.
+  error String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([email, template, dedupeKey])
+  @@index([profileId, createdAt])
+}
+
+model Report {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  reason ReportReason
+  detail String?
+
+  // IP del reportante hasheada con salt: sirve para detectar abuso
+  // sin guardar un dato personal.
+  reporterIpHash String?
+
+  status     ReportStatus @default(PENDIENTE)
+  resolvedAt DateTime?
+  resolution String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([profileId])
+}
+
+// ---------------------------------------------------------------------------
+// Antiabuso
+// ---------------------------------------------------------------------------
+
+/**
+ * Identificadores que no pueden registrarse ni verificar.
+ * Se guarda el HASH del identificador, no el identificador. La lista cumple dos
+ * funciones —impedir un alta y tapar un número ya usado— y ninguna necesita
+ * recuperar el dato original. Guardar el hash significa que si alguien se
+ * lleva la base no obtiene la lista de teléfonos y emails de los bloqueados,
+ * que es exactamente la información que un atacante quiere.
+ * La unicidad es por (tipo, hash): el mismo hash puede estar bloqueado como
+ * email y como teléfono sin conflicto.
+ */
+model BlockedIdentifier {
+  id String @id @default(cuid())
+
+  type      BlockedIdentifierType
+  valueHash String
+
+  // Por qué se bloqueó. Sin motivo escrito, un bloqueo es indistinguible de un
+  // error y nadie puede revertirlo con criterio.
+  reason String
+
+  // Quién lo bloqueó. El nombre del campo es `createdBy` y no `actorId` a
+  // propósito: bloquea un humano, no una sesión.
+  createdBy String
+
+  createdAt DateTime @default(now())
+
+  @@unique([type, valueHash])
+  @@index([type])
+}
+
+/**
+ * Señales que apuntan a un perfil sospechoso.
+ * No son un veredicto. Se acumulan, se muestran en el panel de administración y
+ * alguien decide. El patrón es deliberado: bloquear por heurística deja
+ * afuera a profesionales legítimos, y un portal donde la mitad de los
+ * Bombearon quedan afuera pierde a los clientes de a poco.
+ * `resolvedAt` no borra la señal: la deja archivada. Una señal resuelta cuenta
+ * como antecedente si el mismo perfil reincide.
+ */
+model RiskSignal {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  type RiskSignalType
+
+  // Contexto de la señal, sin datos personales. Un ejemplo:
+  // { dominio: "mailinator.com" } o { reportes: 3 }.
+  details Json?
+
+  resolvedAt DateTime?
+  // Por qué se resolvió. Sin esto el historial no sirve para aprender.
+  resolution String?
+
+  createdAt DateTime @default(now())
+
+  @@index([profileId, createdAt])
+  @@index([type, createdAt])
+  @@index([resolvedAt])
+}
+
+/**
+ * Banderas de configuración del sitio.
+ * Valor en JSON para que agregar una bandera no requiera migración.
+ * `requireManualApproval` es la que hace que todo perfil nuevo quede esperando
+ * revisión. Arrancar con ella apagada es lo razonable: nobody mira el panel
+ * de administración mientras hay pocos perfiles. Prenderla para el lanzamiento
+ * y apagarla cuando el volumen crezca.
+ */
+model SiteSetting {
+  key   String @id
+  value Json
+
+  // Quién lo cambió y cuándo. Una bandera sin rastro es un estado fantasma.
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+// Trazabilidad de toda acción administrativa: quién hizo qué y cuándo.
+model AuditLog {
+  id String @id @default(cuid())
+
+  actorId    String
+  actorEmail String
+  action     String
+  entityType String
+  entityId   String?
+
+  // Antes y después en JSON. Solo datos no sensibles.
+  before Json?
+  after  Json?
+
+  ipHash String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Baja y arrepentimiento
+// ---------------------------------------------------------------------------
+
+/**
+ * Motivo legal del pedido.
+ * `BAJA` corta la renovación y deja el perfil visible hasta el fin del período
+ * pagado. `ARREPENTIMIENTO` revoca la contratación dentro de los 10 días
+ * corridos: devuelve el dinero, despublica y anula el comprobante.
+ */
+enum CancellationType {
+  BAJA
+  ARREPENTIMIENTO
+}
+
+enum CancellationStatus {
+  /// Registrado, todavía sin resolver contra la pasarela.
+  PENDIENTE
+  /// Terminado: cancelación aplicada y, si correspondía, dinero devuelto.
+  COMPLETADA
+  /// La pasarela rechazó la operación. El pedido queda para revisión manual.
+  FALLIDA
+}
+
+/**
+ * Constancia de una baja o de un arrepentimiento.
+ * Existe por dos motivos: el número de trámite es lo que el profesional puede
+ * citar si reclama, y el registro es la prueba de que la baja se pidió y cuándo.
+ * El reembolso se guarda por `refundedPaymentId` para poder bloquear un segundo
+ * intento sobre el mismo pago.
+ */
+model CancellationRequest {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  // Se guardan como texto y no como relaciones: la baja tiene que sobrevivir
+  // aunque la suscripción o el pago se borren en una limpieza futura.
+  subscriptionId    String?
+  refundedPaymentId String?
+
+  type   CancellationType
+  reason String?
+
+  status CancellationStatus @default(PENDIENTE)
+
+  /// Número que se le informa al profesional y se guarda en la constancia.
+  tramiteNumber String @unique
+
+  /// Cuándo se pidió.
+  requestedAt DateTime  @default(now())
+  /// Cuándo quedó resuelto.
+  processedAt DateTime?
+  /// Hasta cuándo sigue publicado el perfil (fin del período ya pagado).
+  effectiveAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, createdAt])
+  @@index([status, createdAt])
+  @@index([refundedPaymentId])
+}
+
+/**
+ * Libro de quejas.
+ * No se guarda como email suelto porque una queja sin registro no se puede
+ * contar, ni responder dos veces con la misma información, ni mostrar en una
+ * inspección. El texto es libre y puede contener datos personales: no se loguea.
+ */
+enum ComplaintStatus {
+  ABIERTO
+  EN_REVISION
+  RESUELTO
+}
+
+model Complaint {
+  id String @id @default(cuid())
+
+  name      String
+  email     String
+  phone     String?
+  /// Perfil, pago o trámite al que se refiere, si el reclamante lo sabe.
+  reference String?
+
+  message String
+
+  status ComplaintStatus @default(ABIERTO)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+}
+
+/**
+ * Motivo del reclamo de un cliente que contactó al profesional.
+ * Son los mismos motivos del libro de quejas, pero este modelo es distinto:
+ * un reclamo viene de un cliente con ContactIntent previo, lleva pruebas
+ * privadas y puede derivar en suspensión automática del profesional.
+ */
+enum ReclamoMotivo {
+  NO_SE_PRESENTO
+  MALA_CALIDAD
+  COBRO_EXCESIVO
+  TRATO_INADECUADO
+  FRAUDE
+  OTRO
+}
+
+/**
+ * Estado del reclamo.
+ * NUEVO: recién creado, sin revisar.
+ * EN_REVISION: el administrador lo está revisando.
+ * VALIDADO: el reclamo se confirmó. Cuenta para la política de suspensión.
+ * DESESTIMADO: se rechazó, no cuenta para la política.
+ */
+enum ReclamoEstado {
+  NUEVO
+  EN_REVISION
+  VALIDADO
+  DESESTIMADO
+}
+
+/**
+ * Reclamo de un cliente contra un profesional.
+ * Solo puede crearlo un cliente con un ContactIntent previo hacia ese perfil,
+ * y uno por cliente y perfil cada 30 días. Las evidencias son privadas y
+ * solo las ven el profesional afectado y el administrador.
+ */
+model Reclamo {
+  id              String @id @default(cuid())
+  profileId       String
+  clientId        String
+  contactIntentId String
+
+  profile Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  client  User          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contact ContactIntent @relation(fields: [contactIntentId], references: [id], onDelete: Cascade)
+
+  motivo      ReclamoMotivo
+  descripcion String
+
+  estado     ReclamoEstado @default(NUEVO)
+  resolucion String?
+
+  /// Número de trámite único, se le informa al cliente.
+  tramiteNumber String @unique
+
+  requestedAt DateTime  @default(now())
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  evidencias EvidenciaReclamo[]
+
+  @@index([profileId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([contactIntentId])
+  @@index([estado, createdAt])
+}
+
+/**
+ * Prueba adjunta a un reclamo.
+ * Hasta 3 por reclamo. La URL apunta a un recurso privado servido por una
+ * ruta protegida (solo el profesional del reclamo y el admin), nunca pública.
+ */
+model EvidenciaReclamo {
+  id        String  @id @default(cuid())
+  reclamoId String
+  reclamo   Reclamo @relation(fields: [reclamoId], references: [id], onDelete: Cascade)
+
+  url       String
+  createdAt DateTime @default(now())
+
+  @@index([reclamoId])
+}
+
+/**
+ * Reporte público de un perfil (cualquier visitante, sin login).
+ * Ya existía del módulo 2.6; se mantiene para los reportes anónimos.
+ * Un reporte por visitante (IP hasheada) y perfil por día.
+ */
+
+// ---------------------------------------------------------------------------
+// Soporte y moderación (módulo 4.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Estado de un ticket de soporte.
+ * `EN_CURSO` significa que alguien del equipo ya lo tomó y le dio una primera
+ * respuesta; `RESUELTO` cierra el trámite.
+ */
+enum TicketStatus {
+  ABIERTO
+  EN_CURSO
+  RESUELTO
+}
+
+/**
+ * Prioridad del ticket.
+ * La prioridad alta acorta el SLA de primera respuesta y de resolución.
+ */
+enum TicketPriority {
+  BAJA
+  MEDIA
+  ALTA
+}
+
+/**
+ * Categoría del ticket.
+ * `VERIFICACION_WHATSAPP` es la categoría específica para "No puedo verificar
+ * mi número", que es el problema más común del alta.
+ */
+enum TicketCategory {
+  VERIFICACION_WHATSAPP
+  PAGO
+  PERFIL
+  PUBLICACION
+  OTRO
+}
+
+/**
+ * Ticket de soporte.
+ * El usuario es opcional: cualquier visitante puede abrir un ticket sin
+ * sesión, dejando nombre y email para que el equipo le responda.
+ * El número de trámite es el identificador público que se le informa y que
+ * aparece en el email de confirmación.
+ */
+model SupportTicket {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Datos de quien abre el ticket sin sesión.
+  nombre    String?
+  email     String?
+
+  categoria TicketCategory
+  asunto    String
+  mensaje   String
+
+  prioridad TicketPriority @default(MEDIA)
+  estado    TicketStatus   @default(ABIERTO)
+
+  // Quién lo atiende del equipo de soporte/moderación.
+  asignadoA String?
+  asignado  User?    @relation("SoporteAsignado", fields: [asignadoA], references: [id])
+
+  // Identificador público del trámite, único y fácil de dictar por teléfono.
+  numeroTramite String @unique
+
+  // Primera respuesta del equipo (SLA) y cierre (SLA).
+  respuestaEn DateTime?
+  resueltoEn  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  respuestas TicketRespuesta[]
+
+  @@index([estado])
+  @@index([categoria])
+  @@index([asignadoA])
+  @@index([numeroTramite])
+  @@index([createdAt])
+}
+
+/**
+ * Respuesta de un ticket.
+ * Puede ser del equipo (admin/moderador) o del propio cliente si vuelve a
+ * escribir. Las respuestas del equipo se envían por email al usuario.
+ */
+model TicketRespuesta {
+  id        String  @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  autorId   String
+  autor     User    @relation(fields: [autorId], references: [id])
+
+  mensaje   String
+  // `true` si la respuesta la escribió alguien del equipo; `false` si es el
+  // cliente respondiendo a su propio ticket.
+  esDelEquipo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+/**
+ * Plantilla de respuesta predefinida.
+ * El equipo elige una plantilla en la bandeja y la adapta antes de enviar,
+ * para no escribir siempre lo mismo.
+ */
+model TicketPlantilla {
+  id     String @id @default(cuid())
+  codigo String @unique
+  nombre String
+  asunto String
+  mensaje String
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Derechos del titular y borrado de datos (módulo 4.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tipo de pedido de ejercicio de derechos (Ley 25.326).
+ * `ACCESO` devuelve una copia de los datos personales que tratamos.
+ * `RECTIFICACION` corrige datos inexactos o incompletos.
+ * `SUPRESION` borra o anonimiza lo que la ley permite, conservando solo lo
+ * exigido por el plazo fiscal.
+ */
+enum TipoDataRequest {
+  ACCESO
+  RECTIFICACION
+  SUPRESION
+}
+
+/**
+ * Estado de un pedido de derechos.
+ * `PENDIENTE`: recién creado, esperando confirmación del titular.
+ * `EN_PROCESO`: se está ejecutando el pedido (solo supresión y acceso).
+ * `COMPLETADO`: se entregó o se ejecutó.
+ * `RECHAZADO`: no procede (p. ej. supresión de facturas que la ley exige conservar).
+ * `CANCELADO`: el titular se arrepintió dentro del plazo de gracia.
+ */
+enum EstadoDataRequest {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADO
+  RECHAZADO
+  CANCELADO
+}
+
+/**
+ * Pedido de ejercicio de derechos del titular.
+ * Existe para demostrar el cumplimiento de la Ley 25.326: qué se pidió, cuándo,
+ * quién lo pidió y cuál fue el resultado. El cuerpo del email de confirmación y
+ * el ZIP de datos nunca se guardan aquí: solo metadatos.
+ */
+model DataRequest {
+  id        String   @id @default(cuid())
+  profileId String?
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  // Email de quien pide, aunque no tenga sesión (cliente sin cuenta, visitante).
+  email     String
+  nombre    String?
+
+  tipo   TipoDataRequest
+  estado EstadoDataRequest @default(PENDIENTE)
+
+  // Identificador público del trámite, único y fácil de dictar por teléfono.
+  tramiteNumber String @unique
+
+  // Cuándo se pidió y cuándo se resolvió.
+  requestedAt DateTime @default(now())
+  resolvedAt  DateTime?
+
+  // Motivo del rechazo o de la cancelación, si corresponde.
+  resolucion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estado])
+  @@index([tipo])
+  @@index([profileId])
+  @@index([tramiteNumber])
+}
+
+// Historial de corridas del cron diario, para el panel de monitoreo.
+// Cada corrida registra ok/error, duración y mensaje de error si falló.
+model CronJobRun {
+  id         String   @id @default(cuid())
+  job        String
+  ok         Boolean
+  procesados Int
+  errores    Int
+  duracionMs Int
+  error      String?
+  detalle    String?
+  ejecutadoEn DateTime @default(now())
+
+  @@index([job, ejecutadoEn])
+  @@index([ok])
+}
+
+// ---------------------------------------------------------------------------
+// Lanzamiento: cupones, socios fundadores y referidos
+// ---------------------------------------------------------------------------
+
+/**
+ * Tipo de descuento que aplica un cupón.
+ *
+ * - MES_GRATIS: primer mes sin cargo (monto 0 en el preapproval).
+ * - PORCENTAJE: se descuenta el `valor` por ciento del monto del plan.
+ * - MONTO_FIJO: se cobra `valor` fijo, independientemente del plan.
+ */
+enum TipoCupon {
+  MES_GRATIS
+  PORCENTAJE
+  MONTO_FIJO
+}
+
+/**
+ * Cupón de lanzamiento.
+ *
+ * Un código que un profesional puede usar al suscribirse. Cada cupón tiene un
+ * cupo de usos, una vigencia opcional y puede restringirse a ciertos rubros o
+ * provincias. El cupo y la vigencia lo controla el admin desde el panel.
+ */
+model Cupon {
+  id              String   @id @default(cuid())
+  codigo          String   @unique
+  tipo            TipoCupon
+  valor           Decimal? @db.Decimal(10, 2) // porcentaje o monto fijo; MES_GRATIS no lo usa
+  cupoMaximoUsos  Int
+  usosActuales    Int      @default(0)
+  vigenteDesde    DateTime @default(now())
+  vigenteHasta    DateTime?
+  // Slugs de rubro habilitados. `null` = todos los rubros.
+  rubrosHabilitados Json?
+  // Provincias habilitadas. `null` = todas las provincias.
+  provinciasHabilitados Json?
+  activo          Boolean  @default(true)
+
+  redenciones     CuponRedencion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([codigo])
+  @@index([activo, vigenteDesde, vigenteHasta])
+}
+
+/**
+ * Una redención de cupón: un perfil usó un cupón al suscribirse.
+ *
+ * `profileId` es único para que el mismo perfil no use el mismo cupón dos
+ * veces. `whatsappHash` y `cuitHash` son únicos cuando están presentes para
+ * que la misma persona no use el cupón con otro perfil (cambio de número o de
+ * CUIT no evaden el cupo). Los dos son opcionales porque un perfil puede no
+ * tener WhatsApp verificado ni CUIT cargado al momento de canjear.
+ */
+model CuponRedencion {
+  id        String @id @default(cuid())
+  cuponId   String
+  cupon     Cupon  @relation(fields: [cuponId], references: [id], onDelete: Cascade)
+  profileId String @unique
+
+  whatsappHash String? @unique
+  cuitHash     String? @unique
+
+  usadoEn DateTime @default(now())
+
+  @@index([cuponId])
+  @@index([profileId])
+}
+
+// ---------------------------------------------------------------------------
+// Recuperación de contraseña (punto 10 del módulo 6.1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Token de recuperación de contraseña.
+ * Se guarda HASHEADO (nunca en claro), es de un solo uso, vence a los
+ * 30-60 minutos y al usarse invalida las sesiones (sessionVersion de User).
+ */
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Hash del token de recuperación. Nunca se guarda el token en claro.
+  tokenHash String   @unique
+
+  // Fecha de expiración (30-60 minutos desde la creación).
+  expiresAt DateTime
+
+  // Si ya se usó (un solo uso).
+  used      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}

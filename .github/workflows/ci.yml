@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+  NEXTAUTH_URL: ${{ vars.NEXTAUTH_URL || 'https://localhost:3000' }}
+  DATA_ENCRYPTION_KEY: ${{ secrets.DATA_ENCRYPTION_KEY }}
+  PHONE_HASH_PEPPER: ${{ secrets.PHONE_HASH_PEPPER }}
+  UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+  UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
+  CSP_REPORT_ONLY: '1'
+
+jobs:
+  security-and-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      - name: TypeCheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests unitarios
+        run: npm test
+
+      - name: Build de Next.js
+        run: npm run build
+
+      - name: Escanear secretos en bundle del cliente (punto 1)
+        run: tsx scripts/check-client-bundle.ts
+
+      - name: Verificar que no haya queries no seguras (punto 13)
+        run: tsx scripts/check-no-unsafe-queries.ts
+
+      - name: Auditar dependencias (punto 20)
+        run: npm audit --audit-level=high
+
+      - name: Escanear secretos en el repositorio con gitleaks (puntos 1 y 2)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Escanear dependencias con OSV-Scanner (punto 20)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/google/osv-scanner/master/scripts/install.sh | sh -s -- -b ./bin
+          ./bin/osv-scanner scan --lockfile package-lock.json --exit-code --skip-git
+
+      - name: Ejecutar verificar (seed idempotente + flujos)
+        run: npm run verificar
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/poliservicios_test

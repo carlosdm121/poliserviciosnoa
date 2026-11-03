@@ -1,0 +1,40 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/facturacion",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 12 * * *"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "http://:path*",
+      "destination": "https://poliserviciosnoa.com/:path*",
+      "statusCode": 301
+    },
+    {
+      "source": "http://www.poliserviciosnoa.com/:path*",
+      "destination": "https://poliserviciosnoa.com/:path*",
+      "statusCode": 301
+    },
+    {
+      "source": "https://www.poliserviciosnoa.com/:path*",
+      "destination": "https://poliserviciosnoa.com/:path*",
+      "statusCode": 301
+    }
+  ],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Brutalist / Editorial.
+ *
+ * El sitio se lee en un celular, al sol, con una mano ocupada. Eso define
+ * estas cuatro cosas:
+ * 1. Contraste máximo: negro sobre blanco, sin grises de texto.
+ * 2. Bordes gruesos: la separación tiene que verse sin buscar el elemento.
+ * 3. Sin sombras difusas: en pantalla de gama baja se vuelven manchas grises.
+ * 4. Áreas táctiles de 44px: pulgar, no puntero.
+ */
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    @apply border-ink;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    /* Evita el rebote horizontal en móvil por un elemento que se pase de ancho */
+    overflow-x: hidden;
+  }
+
+  /* Foco visible solo por teclado: un anillo que no aparece al hacer clic con
+     el mouse, pero sí al navegar con teclado. */
+  :focus-visible {
+    @apply outline-none ring-4 ring-ink ring-offset-2 ring-offset-paper;
+  }
+
+  ::selection {
+    @apply bg-ink text-paper;
+  }
+}
+
+@layer components {
+  /* Botón base. Bordes gruesos y sin redondeo: es la decisión visual que
+     separa este sitio de un template genérico. */
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 border-[3px] border-ink px-5 py-3 text-base font-bold uppercase tracking-wide transition-transform duration-100;
+  }
+
+  .btn:active {
+    /* Feedback de presion: hundir el boton al tocarlo lo hace sentir fisico */
+    @apply translate-x-[2px] translate-y-[2px];
+  }
+
+  /* Único botón verde de todo el sitio. Reservado para contactar por WhatsApp:
+     si el verde aparece en otro lado, el usuario deja de saber dónde tocar. */
+  .btn-whatsapp {
+    @apply btn border-whatsapp-dark bg-whatsapp text-whatsapp-contrast;
+  }
+
+  .btn-whatsapp:active {
+    @apply bg-whatsapp-dark;
+  }
+
+  .btn-oscuro {
+    @apply btn bg-ink text-paper;
+  }
+
+  .btn-oscuro:hover {
+    @apply bg-paper text-ink;
+  }
+
+  .btn-linea {
+    @apply btn bg-paper text-ink;
+  }
+
+  .btn-linea:hover {
+    @apply bg-ink text-paper;
+  }
+
+  /* Etiqueta pequeña con borde. Sirve para rubros, badges y estados. */
+  .etiqueta {
+    @apply inline-flex items-center gap-1 border-2 border-ink px-2 py-0.5 text-xs font-bold uppercase tracking-wide;
+  }
+
+  /* Insignia de WhatsApp verificado. Neutra a propósito: si usara el verde,
+     competiría con el botón de contacto. */
+  .insignia-verificada {
+    @apply etiqueta border-ink bg-paper text-ink;
+  }
+
+  /* Campo de formulario. El foco tiene que ser evidente sin que se pierda el
+     borde, porque el usuario está escribiendo con una mano. */
+  .campo {
+    @apply w-full border-[3px] border-ink bg-paper px-4 py-3 text-base placeholder:text-muted focus:bg-paper;
+  }
+
+  .campo-error {
+    @apply border-red-700 bg-red-50;
+  }
+
+  /* Tarjeta: sin sombra, sin redondeo, solo borde. */
+  .tarjeta {
+    @apply border-[3px] border-ink bg-paper;
+  }
+
+  /* Error de formulario: debe leerse sin effort y decir qué hacer. */
+  .error {
+    @apply border-[3px] border-red-700 bg-red-50 px-4 py-3 text-sm font-medium text-red-900;
+  }
+
+  .exito {
+    @apply border-[3px] border-ink bg-green-50 px-4 py-3 text-sm font-medium;
+  }
+
+  /* Barra de progreso de la galería.
+     Se usa <progress> y no un div con ancho, y no por semántica: el elemento
+     nativo ya anuncia el porcentaje a un lector de pantalla y expone el valor
+     como número, que es lo que necesita un lector de pantalla para decir
+     "45 por ciento" en vez de "una barra". El aspecto se corrige acá porque el
+     que trae el navegador es gris redondeado, que es exactamente la estética
+     que el resto del sitio no usa. */
+  .progreso {
+    @apply block h-6 w-full appearance-none border-[3px] border-ink bg-paper;
+  }
+
+  /* -webkit- y -moz- por separado: Chrome y Firefox exponen el pseudoelemento
+     con nombres distintos, y el que no coincide usa el estilo por defecto. */
+  .progreso::-webkit-progress-bar {
+    @apply bg-paper;
+  }
+
+  .progreso::-webkit-progress-value {
+    @apply bg-ink;
+  }
+
+  .progreso::-moz-progress-bar {
+    @apply bg-ink;
+  }
+}
+
+@layer utilities {
+  /* Oculta la barra de scroll sin dejar de permitir scroll.
+     Para listas horizontales de categorías en móvil. */
+  .sin-barra {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .sin-barra::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Respeta la preferencia de menos movimiento. Las animaciones de este
+     proyecto son transformaciones cortas, no hay nada que pierda sentido. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
