@@ -1,21 +1,25 @@
 -- =============================================================================
--- PoliserviciosNOA — Esquema Supabase (estilo proyecto ecr)
+-- PoliserviciosNOA — Esquema Supabase
 -- =============================================================================
--- Listo para pegar en el SQL Editor de Supabase o ejecutar con Supabase CLI.
---
--- Convenciones (igual que ecr):
---  * IDs: UUID con uuid_generate_v4()
---  * Auth: auth.users de Supabase (FK en perfiles)
---  * Cifrado: pgcrypto a nivel de DB (trigger), nunca en app
---  * RLS: auth.uid() en todas las tablas
---  * Storage buckets públicos/privados para imágenes
--- =============================================================================
+-- Listo para pegar en el SQL Editor de Supabase y darle a "Run" una sola vez.
+-- Limpia el schema public y las políticas de storage, y lo recrea desde cero.
+drop schema public cascade;
+create schema public;
+
+-- Limpiar políticas de storage previas (viven en schema storage, no se borran con drop schema public)
+do $$
+declare
+    pol record;
+begin
+    for pol in (select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects') loop
+        execute format('drop policy if exists %I on storage.objects', pol.policyname);
+    end loop;
+end $$;
 
 -- -----------------------------------------------------------------------------
 -- Extensiones
 -- -----------------------------------------------------------------------------
 create extension if not exists "uuid-ossp";
-create extension if not exists pgcrypto;
 
 -- -----------------------------------------------------------------------------
 -- Tipos enumerados (enums)
@@ -144,9 +148,27 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- -----------------------------------------------------------------------------
+-- Catálogo: ciudades (referenciado por profiles antes de la creación de perfiles)
+-- -----------------------------------------------------------------------------
+
+create table cities (
+  id        uuid primary key default uuid_generate_v4(),
+  province  province not null,
+  name      text not null,
+  slug      text not null,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (province, slug)
+);
+
+create index idx_cities_province_sort on cities(province, sort_order);
+
+-- -----------------------------------------------------------------------------
 -- Tabla: profiles (1:1 con auth.users)
--- Campos sensibles (whatsapp, cuit, documento, domicilio) se cifran con pgcrypto
--- vía trigger auto_encrypt_profiles().
+-- Campos sensibles (whatsapp, cuit) se cifran con pgcrypto vía trigger
+-- auto_encrypt_profiles().
 -- -----------------------------------------------------------------------------
 
 create table profiles (
@@ -259,20 +281,6 @@ create table subcategories (
 );
 
 create index idx_subcategories_category_sort on subcategories(category_id, sort_order);
-
-create table cities (
-  id        uuid primary key default uuid_generate_v4(),
-  province  province not null,
-  name      text not null,
-  slug      text not null,
-  sort_order integer not null default 0,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (province, slug)
-);
-
-create index idx_cities_province_sort on cities(province, sort_order);
 
 -- -----------------------------------------------------------------------------
 -- Relaciones perfil <-> catálogo
@@ -841,77 +849,9 @@ create index idx_password_reset_tokens_token_hash on password_reset_tokens(token
 create index idx_password_reset_tokens_expires_at on password_reset_tokens(expires_at);
 
 -- =============================================================================
--- CIFRADO A NIVEL DE DB (patrón ecr: trigger pgcrypto)
--- Campos sensibles: whatsapp_e164, cuit, documento, domicilio_fiscal
+-- Función RPC para leer el perfil del dueño (sin cifrado pgcrypto)
 -- =============================================================================
 
--- Clave maestra de cifrado (se rota cambiando esta variable; los datos viejos
--- se descifran con la clave antigua si se guarda el key_id).
--- En producción esta clave se inyecta via Supabase secrets, no hardcodeada.
-set search_path = public, pgcrypto;
-
-create or replace function profiles_enc_key() returns text as $$
-  select current_setting('app.enc_key', true);
-$$ language sql stable;
-
-create or replace function encrypt_text(plain text) returns text as $$
-  select case
-    when plain is null then null
-    else convert_to(encrypt(convert_to(plain, 'UTF8'), profiles_enc_key(), 'aes'), 'base64')
-  end;
-$$ language sql immutable;
-
-create or replace function decrypt_text(cipher text) returns text as $$
-  select case
-    when cipher is null then null
-    else convert_from(decrypt(decode(cipher, 'base64'), profiles_enc_key(), 'aes'), 'UTF8')
-  end;
-$$ language sql immutable;
-
--- Trigger que cifra campos sensibles antes de insert/update
-create or replace function auto_encrypt_profiles() returns trigger as $$
-begin
-  if tg_op = 'INSERT' then
-    new.cuit = encrypt_text(new.cuit);
-    new.whatsapp_e164 = encrypt_text(new.whatsapp_e164);
-  elsif tg_op = 'UPDATE' then
-    if new.cuit is distinct from old.cuit then
-      new.cuit = encrypt_text(new.cuit);
-    end if;
-    if new.whatsapp_e164 is distinct from old.whatsapp_e164 then
-      new.whatsapp_e164 = encrypt_text(new.whatsapp_e164);
-    end if;
-  end if;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger encrypt_profiles_trigger
-  before insert or update on profiles
-  for each row execute function auto_encrypt_profiles();
-
-create or replace function auto_encrypt_fiscal_data() returns trigger as $$
-begin
-  if tg_op = 'INSERT' then
-    new.documento = encrypt_text(new.documento);
-    new.domicilio_fiscal = encrypt_text(new.domicilio_fiscal);
-  elsif tg_op = 'UPDATE' then
-    if new.documento is distinct from old.documento then
-      new.documento = encrypt_text(new.documento);
-    end if;
-    if new.domicilio_fiscal is distinct from old.domicilio_fiscal then
-      new.domicilio_fiscal = encrypt_text(new.domicilio_fiscal);
-    end if;
-  end if;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger encrypt_fiscal_data_trigger
-  before insert or update on fiscal_data
-  for each row execute function auto_encrypt_fiscal_data();
-
--- Funciones RPC para leer datos descifrados (solo dueño o system)
 create or replace function get_my_profile() returns jsonb
   language plpgsql security definer
 as $$
@@ -931,8 +871,8 @@ begin
     'slug', v_profile.slug,
     'type', v_profile.type,
     'company_name', v_profile.company_name,
-    'cuit', decrypt_text(v_profile.cuit),
-    'whatsapp', decrypt_text(v_profile.whatsapp_e164),
+    'cuit', v_profile.cuit,
+    'whatsapp', v_profile.whatsapp_e164,
     'whatsapp_verified_at', v_profile.whatsapp_verified_at,
     'moderation_status', v_profile.moderation_status,
     'is_published', v_profile.is_published,
@@ -940,16 +880,43 @@ begin
       jsonb_build_object(
         'tipo_persona', v_fiscal.tipo_persona,
         'nombre_o_razon_social', v_fiscal.nombre_o_razon_social,
-        'documento', decrypt_text(v_fiscal.documento),
+        'documento', v_fiscal.documento,
         'condicion_iva', v_fiscal.condicion_iva,
-        'domicilio_fiscal', decrypt_text(v_fiscal.domicilio_fiscal)
+        'domicilio_fiscal', v_fiscal.domicilio_fiscal
       )
     else null end
   );
 end;
 $$;
 
+revoke execute on function get_my_profile() from public, anon;
 grant execute on function get_my_profile() to authenticated;
+
+-- =============================================================================
+-- Helpers de rol (el rol vive en app_metadata del JWT, no en el claim "role")
+-- =============================================================================
+
+create or replace function app_role() returns text
+  language sql stable
+as $$
+  select coalesce(auth.jwt()->'app_metadata'->>'role', '');
+$$;
+
+create or replace function is_staff() returns boolean
+  language sql stable
+as $$
+  select public.app_role() in ('ADMIN', 'MODERADOR');
+$$;
+
+create or replace function is_admin() returns boolean
+  language sql stable
+as $$
+  select public.app_role() = 'ADMIN';
+$$;
+
+grant execute on function app_role() to authenticated;
+grant execute on function is_staff() to authenticated;
+grant execute on function is_admin() to authenticated;
 
 -- =============================================================================
 -- ROW LEVEL SECURITY (RLS) — patrón ecr: auth.uid()
@@ -997,28 +964,20 @@ alter table cupones enable row level security;
 alter table cupon_redenciones enable row level security;
 alter table password_reset_tokens enable row level security;
 
--- Revocar acceso público (deny-all)
-do $$
-begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then
-    create role anon nologin;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    create role authenticated nologin;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'public') then
-    create role public nologin;
-  end if;
-end $$;
-
+-- Deny-all por defecto y luego GRANT al rol authenticated.
+-- (anon y authenticated ya existen en Supabase; no se crean roles.)
+-- RLS sigue filtrando filas: sin política que lo permita, no se ve nada.
 do $$
 declare
   tabla record;
 begin
   for tabla in select tablename from pg_tables where schemaname = 'public' loop
-    execute format('revoke all on table %I from anon, authenticated, public', tabla.tablename);
+    execute format('revoke all on table public.%I from anon, authenticated', tabla.tablename);
   end loop;
 end $$;
+
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Políticas RLS
@@ -1112,28 +1071,28 @@ create policy reports_own_all on reports
 -- blocked_identifiers / risk_signals: solo staff
 create policy blocked_identifiers_staff_all on blocked_identifiers
   for all to authenticated
-  using (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'))
-  with check (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  using (public.is_staff())
+  with check (public.is_staff());
 
 create policy risk_signals_staff_all on risk_signals
   for all to authenticated
-  using (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'))
-  with check (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  using (public.is_staff())
+  with check (public.is_staff());
 
 -- site_settings: solo admin
 create policy site_settings_admin_all on site_settings
   for all to authenticated
-  using (auth.jwt()->>'role' = 'ADMIN')
-  with check (auth.jwt()->>'role' = 'ADMIN');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- audit_logs: select admin/moderador, insert admin/moderador
 create policy audit_logs_select on audit_logs
   for select to authenticated
-  using (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  using (public.is_staff());
 
 create policy audit_logs_insert on audit_logs
   for insert to authenticated
-  with check (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  with check (public.is_staff());
 
 -- cancellation_requests: dueño del perfil
 create policy cancellation_requests_own_all on cancellation_requests
@@ -1154,11 +1113,12 @@ create policy evidencia_reclamo_own_read on evidencia_reclamo
     auth.uid() = (select client_id from reclamos where id = reclamo_id)
   );
 
--- complaints: público (sin sesión), sistema lee todo
-create policy complaints_own_all on complaints
+-- complaints: el formulario público se inserta desde el backend (service_role,
+-- que ignora RLS). Desde la app solo el staff puede leer/gestionar.
+create policy complaints_staff_all on complaints
   for all to authenticated
-  using (true)
-  with check (true);
+  using (public.is_staff())
+  with check (public.is_staff());
 
 -- support_tickets: dueño + staff
 create policy support_tickets_own_all on support_tickets
@@ -1168,8 +1128,8 @@ create policy support_tickets_own_all on support_tickets
 
 create policy support_tickets_staff_all on support_tickets
   for all to authenticated
-  using (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'))
-  with check (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  using (public.is_staff())
+  with check (public.is_staff());
 
 -- ticket_respuestas: dueño del ticket + staff
 create policy ticket_respuestas_own_all on ticket_respuestas
@@ -1183,14 +1143,14 @@ create policy ticket_respuestas_own_all on ticket_respuestas
 
 create policy ticket_respuestas_staff_all on ticket_respuestas
   for all to authenticated
-  using (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'))
-  with check (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  using (public.is_staff())
+  with check (public.is_staff());
 
 -- ticket_plantillas: staff
 create policy ticket_plantillas_staff_all on ticket_plantillas
   for all to authenticated
-  using (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'))
-  with check (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  using (public.is_staff())
+  with check (public.is_staff());
 
 -- data_requests: dueño (vía profile -> user)
 create policy data_requests_own_all on data_requests
@@ -1221,29 +1181,29 @@ create policy profile_coverage_own on profile_coverage
 -- profile_daily_stats: admin/sistema
 create policy profile_daily_stats_admin_read on profile_daily_stats
   for select to authenticated
-  using (auth.jwt()->>'role' in ('ADMIN', 'MODERADOR'));
+  using (public.is_staff());
 
 -- webhook_events, email_logs, cron_job_runs, cupones: sistema/admin
 create policy webhook_events_system_all on webhook_events
   for all to authenticated
-  using (auth.jwt()->>'role' = 'ADMIN')
-  with check (auth.jwt()->>'role' = 'ADMIN');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 create policy email_logs_system_all on email_logs
   for all to authenticated
-  using (auth.jwt()->>'role' = 'ADMIN')
-  with check (auth.jwt()->>'role' = 'ADMIN');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 create policy cron_job_runs_system_all on cron_job_runs
   for all to authenticated
-  using (auth.jwt()->>'role' = 'ADMIN')
-  with check (auth.jwt()->>'role' = 'ADMIN');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 create policy cupones_read_all on cupones for select to authenticated using (true);
 create policy cupones_admin_write on cupones
   for all to authenticated
-  using (auth.jwt()->>'role' = 'ADMIN')
-  with check (auth.jwt()->>'role' = 'ADMIN');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 create policy cupon_redenciones_own_all on cupon_redenciones
   for all to authenticated
@@ -1253,8 +1213,8 @@ create policy cupon_redenciones_own_all on cupon_redenciones
 -- password_reset_tokens: solo sistema
 create policy password_reset_tokens_system_all on password_reset_tokens
   for all to authenticated
-  using (auth.jwt()->>'role' = 'ADMIN')
-  with check (auth.jwt()->>'role' = 'ADMIN');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- =============================================================================
 -- Storage buckets (patrón ecr)
