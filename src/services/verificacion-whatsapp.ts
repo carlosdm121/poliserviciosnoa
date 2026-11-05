@@ -237,7 +237,7 @@ async function aplicarCambioDeNumero(
 
   logger.info('whatsapp: número cambiado, verificación revocada', {
     profileId,
-    anterior: enmascararTelefono(perfil.whatsappE164),
+    anterior: enmascararTelefono(perfil.whatsappE164 ?? ''),
     nuevo: enmascararTelefono(e164),
   })
 
@@ -597,7 +597,7 @@ export async function verificarManualmente(
       await tx.profile.update({
         where: { id: profileId },
         data: {
-          whatsappHash: hashTelefono(perfil.whatsappE164),
+          whatsappHash: hashTelefono(perfil.whatsappE164 ?? ''),
           whatsappVerifiedAt: new Date(),
         },
       })
@@ -609,7 +609,7 @@ export async function verificarManualmente(
           action: 'whatsapp.verificacion_manual',
           entityType: 'Profile',
           entityId: profileId,
-          after: { telefono: enmascararTelefono(perfil.whatsappE164), motivo: motivo.trim() },
+          after: { telefono: enmascararTelefono(perfil.whatsappE164 ?? ''), motivo: motivo.trim() },
         },
       })
     })

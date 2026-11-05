@@ -95,7 +95,7 @@ export async function registrarProfesional(
     passwordHash: await hashearPassword(password),
     name,
     role: 'PROFESSIONAL',
-    emailVerified: null,
+    emailVerified: new Date(),
     // La IP se guarda hasheada y solo para la señal de altas múltiples. No
     // sirve para nada más, y por eso no se guarda en claro.
     signupIpHash: ip ? hashValor(ip) : null,

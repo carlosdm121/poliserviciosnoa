@@ -47,7 +47,8 @@ export async function registrarContacto(params: {
     return err('Ese perfil no está disponible.', ERROR_CODES.NO_ENCONTRADO)
   }
 
-  const url = enlaceWhatsApp(perfil.whatsappE164.replace(/\D/g, ''))
+  const telefono = perfil.whatsappE164 ?? ''
+  const url = enlaceWhatsApp(telefono.replace(/\D/g, ''))
 
   if (params.contar === false) {
     return ok({ url, contado: false, intencionCreada: false })

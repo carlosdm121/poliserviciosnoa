@@ -1,26 +1,58 @@
 /**
  * Service worker de PoliserviciosNOA.
  *
- * Estrategias de caché:
- * - Estáticos (_next/*): caché primero, caducan en 7 días.
- * - Imágenes de Cloudinary: caché primero, caducan en 30 días.
- * - Búsqueda pública (/buscar*): red primero, guarda en caché como respaldo (1 h).
- * - Pagos, sesiones y verificación de WhatsApp (/api/*): NUNCA se cachean.
- * - Todo lo demás: red primero.
+ * Regla de oro: solo se cachea contenido público e inmutable.
+ * - `/_next/static/*`: caché primero (esos archivos llevan hash y no cambian).
+ * - Imágenes de Cloudinary: caché primero.
+ * - Navegaciones públicas: red primero; si no hay red, lo último cacheado.
+ * - Panel, admin, login, registro y API: NUNCA pasan por el service worker.
+ *   Son datos privados, cambian en cada request y cachearlos rompe la
+ *   navegación entre rebuilds.
  */
 
-const CACHE_ESTATICOS = 'poliservicios-estaticos-v1'
-const CACHE_IMAGENES = 'poliservicios-imagenes-v1'
-const CACHE_BUSCADOR = 'poliservicios-buscador-v1'
+const VERSION = 'v2'
+const CACHE_ESTATICOS = 'poliservicios-estaticos-' + VERSION
+const CACHE_IMAGENES = 'poliservicios-imagenes-' + VERSION
 
-const URLS_ESTATICAS = ['/', '/manifest.json', '/icon-192.svg', '/icon-512.svg']
+/** Rutas que nunca se interceptan ni se cachean. */
+function esPrivada(url) {
+  const ruta = new URL(url).pathname
 
-self.addEventListener('install', function (event) {
-  event.waitUntil(
-    caches.open(CACHE_ESTATICOS).then(function (cache) {
-      return cache.addAll(URLS_ESTATICAS)
-    }),
+  return (
+    ruta === '/panel' ||
+    ruta.indexOf('/panel/') === 0 ||
+    ruta === '/admin' ||
+    ruta.indexOf('/admin/') === 0 ||
+    ruta === '/login' ||
+    ruta === '/registro' ||
+    ruta === '/mis-contactos' ||
+    ruta.indexOf('/mis-contactos/') === 0 ||
+    ruta.indexOf('/invitacion') === 0 ||
+    ruta.indexOf('/api/') === 0
   )
+}
+
+function esEstatico(url) {
+  const recurso = new URL(url)
+
+  return (
+    recurso.origin === self.location.origin &&
+    recurso.pathname.indexOf('/_next/static/') === 0
+  )
+}
+
+function esImagen(url) {
+  return url.indexOf('res.cloudinary.com') !== -1
+}
+
+function respuestaSinConexion() {
+  return new Response('Sin conexión. Revisá tu internet y probá de nuevo.', {
+    status: 503,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  })
+}
+
+self.addEventListener('install', function () {
   self.skipWaiting()
 })
 
@@ -30,11 +62,7 @@ self.addEventListener('activate', function (event) {
       return Promise.all(
         nombres
           .filter(function (nombre) {
-            return (
-              nombre !== CACHE_ESTATICOS &&
-              nombre !== CACHE_IMAGENES &&
-              nombre !== CACHE_BUSCADOR
-            )
+            return nombre !== CACHE_ESTATICOS && nombre !== CACHE_IMAGENES
           })
           .map(function (nombre) {
             return caches.delete(nombre)
@@ -42,86 +70,78 @@ self.addEventListener('activate', function (event) {
       )
     }),
   )
+
   self.clients.claim()
 })
 
-function estaCacheado(url) {
-  return (
-    url.indexOf(self.location.origin + '/_next/') === 0 ||
-    URLS_ESTATICAS.indexOf(url) !== -1
-  )
-}
-
-function esImagen(url) {
-  return url.indexOf('res.cloudinary.com') !== -1
-}
-
-function esBuscador(url) {
-  return url.indexOf('/buscar') !== -1
-}
-
-function esSensible(url) {
-  // Pagos, sesiones, contacto, verificación de WhatsApp: nunca se cachean.
-  return (
-    url.indexOf('/api/webhooks') !== -1 || url.indexOf('/api/contacto') !== -1
-  )
-}
-
 self.addEventListener('fetch', function (event) {
-  var request = event.request
-  var url = request.url
+  const request = event.request
 
-  // Solo peticiones GET y del mismo origen (o Cloudinary para imágenes).
+  // Solo GET. Todo lo demás (POST, server actions) va directo a la red.
   if (request.method !== 'GET') return
-  if (
-    url.indexOf(self.location.origin) !== 0 &&
-    !esImagen(url)
-  ) {
+
+  // Privado y API: no se tocan.
+  if (esPrivada(request.url)) return
+
+  // Navegaciones: red primero. Si falla, se sirve una copia pública cacheada
+  // o un 503 legible. Nunca una promesa rechazada: eso es el "Failed to fetch".
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(function () {
+        return caches.match(request).then(function (respuesta) {
+          return respuesta || respuestaSinConexion()
+        })
+      }),
+    )
     return
   }
 
-  if (esSensible(url)) {
-    event.respondWith(fetch(request))
+  if (esEstatico(request.url)) {
+    event.respondWith(
+      caches.match(request).then(function (respuesta) {
+        if (respuesta) return respuesta
+
+        return fetch(request).then(function (respuestaRed) {
+          if (respuestaRed.ok) {
+            const copia = respuestaRed.clone()
+            caches
+              .open(CACHE_ESTATICOS)
+              .then(function (cache) {
+                return cache.put(request, copia)
+              })
+              .catch(function () {
+                // Si no se puede guardar, la respuesta igual llega al navegador.
+              })
+          }
+
+          return respuestaRed
+        })
+      }).catch(respuestaSinConexion),
+    )
     return
   }
 
-  if (esImagen(url)) {
+  if (esImagen(request.url)) {
     event.respondWith(
       caches.open(CACHE_IMAGENES).then(function (cache) {
         return cache.match(request).then(function (respuesta) {
-          var fetchPromesa = fetch(request).then(function (respuestaRed) {
-            cache.put(request, respuestaRed.clone())
-            return respuestaRed
-          })
-          return respuesta || fetchPromesa
-        })
-      }),
-    )
-    return
-  }
+          if (respuesta) return respuesta
 
-  if (esBuscador(url)) {
-    event.respondWith(
-      caches.open(CACHE_BUSCADOR).then(function (cache) {
-        return cache.match(request).then(function (respuesta) {
-          var fetchPromesa = fetch(request).then(function (respuestaRed) {
+          return fetch(request).then(function (respuestaRed) {
             if (respuestaRed.ok) {
-              cache.put(request, respuestaRed.clone())
+              const copia = respuestaRed.clone()
+              cache.put(request, copia).catch(function () {
+                // Sin caché para esta imagen: se vuelve a pedir la próxima vez.
+              })
             }
+
             return respuestaRed
           })
-          return respuesta || fetchPromesa
         })
-      }),
+      }).catch(respuestaSinConexion),
     )
     return
   }
 
-  // Estáticos y resto: caché primero.
-  event.respondWith(
-    caches.match(request).then(function (respuesta) {
-      if (respuesta) return respuesta
-      return fetch(request)
-    }),
-  )
+  // Cualquier otro GET (RSC, datos) sigue su curso normal por la red.
 })

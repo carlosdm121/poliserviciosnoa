@@ -141,7 +141,6 @@ export type Paso = {
  */
 const MOTIVOS_RESOLUBLES: ReadonlySet<MotivoBloqueo> = new Set<MotivoBloqueo>([
   'EMAIL_SIN_VERIFICAR',
-  'WHATSAPP_SIN_VERIFICAR',
   'SIN_SUSCRIPCION',
   'SUSCRIPCION_VENCIDA',
   'SIN_IMAGENES',
@@ -158,7 +157,6 @@ const MOTIVOS_RESOLUBLES: ReadonlySet<MotivoBloqueo> = new Set<MotivoBloqueo>([
  */
 const RUTA_POR_MOTIVO: Record<MotivoBloqueo, string> = {
   EMAIL_SIN_VERIFICAR: '/panel/cuenta',
-  WHATSAPP_SIN_VERIFICAR: '/panel/whatsapp',
   SIN_SUSCRIPCION: '/panel/suscripcion',
   SUSCRIPCION_VENCIDA: '/panel/suscripcion',
   SIN_IMAGENES: '/panel/galeria',

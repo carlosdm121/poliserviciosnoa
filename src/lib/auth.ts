@@ -50,6 +50,7 @@ declare module 'next-auth' {
 
   interface User extends DefaultUser {
     role: UserRole
+    sessionVersion: number
   }
 }
 
@@ -93,20 +94,17 @@ const providers: NextAuthOptions['providers'] = [
         return null
       }
 
-      // El email sin verificar no puede entrar al panel: la suscripción se
-      // paga con ese email y sin verificar no hay a quién avisarle.
-      if (!usuario.emailVerified) return null
-
       if (!usuario.passwordHash) return null
 
       const passwordValida = await verificarPassword(credentials.password, usuario.passwordHash)
-      if (!passwordValida) return null
+      if (!passwordValida.valido) return null
 
       return {
         id: usuario.id,
         email: usuario.email,
         name: usuario.name,
         role: usuario.role,
+        sessionVersion: usuario.sessionVersion,
       }
     },
   }),
@@ -194,7 +192,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
-        token.sessionVersion = (user as any).sessionVersion ?? 0
+        token.sessionVersion = user.sessionVersion ?? 0
       }
       return token
     },

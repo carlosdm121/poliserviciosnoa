@@ -338,7 +338,7 @@ async function validarRelaciones(
     select: { whatsappE164: true },
   })
 
-  if (perfil && normalizarWhatsapp(perfil.whatsappE164) !== perfil.whatsappE164) {
+  if (perfil && perfil.whatsappE164 && normalizarWhatsapp(perfil.whatsappE164) !== perfil.whatsappE164) {
     // Ya está normalizado por el registro; si algún camino lo dejó sin
     // normalizar, se corrige acá en vez de confiar.
     await tx.profile.update({

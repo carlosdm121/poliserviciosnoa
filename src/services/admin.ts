@@ -129,7 +129,7 @@ export async function listarPerfilesAdmin(filtros: FiltrosPerfiles = {}): Promis
       slug: fila.slug,
       type: fila.type,
       companyName: fila.companyName,
-      whatsappE164: fila.whatsappE164,
+      whatsappE164: fila.whatsappE164 ?? '',
       whatsappVerifiedAt: fila.whatsappVerifiedAt,
       moderationStatus: fila.moderationStatus,
       isPublished: fila.isPublished,

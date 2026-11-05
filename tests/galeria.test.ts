@@ -146,7 +146,7 @@ describe('constantes de la galería', () => {
     // Si este número cambia, tiene que cambiar también la condición de
     // `evaluarPublicacion` que exige al menos una foto. No es que alinee el
     // otro número: es que no se pueden desincronizar sin querer.
-    expect(LIMITE_IMAGENES).toBe(10)
+    expect(LIMITE_IMAGENES).toBe(20)
   })
 
   it('el peso máximo es 5 MB', () => {
@@ -173,7 +173,7 @@ describe('constantes de la galería', () => {
 
   it('el mensaje del límite dice cuántos lugares hay y qué hacer', () => {
     const mensaje = mensajeLimiteAlcanzado()
-    expect(mensaje).toContain('10')
+    expect(mensaje).toContain('20')
     expect(mensaje.toLowerCase()).toContain('borrá')
   })
 })

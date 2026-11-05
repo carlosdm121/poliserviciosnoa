@@ -419,7 +419,7 @@ export async function adminSuspenderYBloquear(
 
   if (!perfil) return ok(null)
 
-  if (incluirWhatsapp) {
+  if (incluirWhatsapp && perfil.whatsappE164) {
     await bloquearIdentificador('WHATSAPP_HASH', perfil.whatsappE164, motivo, admin.data.email)
   }
 

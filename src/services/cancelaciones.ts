@@ -298,6 +298,13 @@ export async function solicitarArrepentimiento(
     )
   }
 
+  if (!pago.mpPaymentId) {
+    return err(
+      'Ese pago fue por transferencia o efectivo y se devuelve manualmente. Escribinos y lo gestionamos.',
+      ERROR_CODES.ESTADO_INVALIDO,
+    )
+  }
+
   const tramite = generarNumeroTramite(CancellationType.ARREPENTIMIENTO, ahora, randomUUID())
 
   const pedido = await prisma.cancellationRequest.create({

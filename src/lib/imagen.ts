@@ -24,7 +24,7 @@
  * Este 10 es el mismo número que usa `evaluarPublicacion` para exigir al menos
  * una foto. Si alguno de los dos cambia, hay que cambiar el otro.
  */
-export const LIMITE_IMAGENES = 10
+export const LIMITE_IMAGENES = 20
 
 /**
  * Formatos aceptados.

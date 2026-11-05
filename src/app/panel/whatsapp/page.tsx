@@ -45,7 +45,7 @@ export default async function PaginaWhatsApp(): Promise<React.ReactElement> {
         <div className="min-w-0">
           {perfil ? (
             <VerificarWhatsApp
-              numeroActual={perfil.whatsappE164}
+              numeroActual={perfil.whatsappE164 ?? ''}
               verificado={perfil.whatsappVerifiedAt !== null}
             />
           ) : (

@@ -45,7 +45,6 @@ type PerfilParaEvaluar = {
 
 export type MotivoBloqueo =
   | 'EMAIL_SIN_VERIFICAR'
-  | 'WHATSAPP_SIN_VERIFICAR'
   | 'SIN_SUSCRIPCION'
   | 'SUSCRIPCION_VENCIDA'
   | 'SIN_IMAGENES'
@@ -65,8 +64,6 @@ export type MotivoBloqueo =
 export const MOTIVOS_BLOQUEO: Record<MotivoBloqueo, string> = {
   EMAIL_SIN_VERIFICAR:
     'Verificá tu email. Te mandamos un enlace: revisá la carpeta de spam si no lo ves.',
-  WHATSAPP_SIN_VERIFICAR:
-    'Verificá tu número de WhatsApp. Sin eso nadie te puede contactar.',
   SIN_SUSCRIPCION: 'Activá tu suscripción para que tu perfil aparezca en las búsquedas.',
   SUSCRIPCION_VENCIDA: 'Tu suscripción venció. Renovala para volver a aparecer en las búsquedas.',
   SIN_IMAGENES: 'Subí al menos una foto de un trabajo tuyo. Sin fotos no te eligen.',
@@ -128,7 +125,6 @@ export function evaluarPublicacion(
   }
 
   if (!emailVerificado) motivos.push('EMAIL_SIN_VERIFICAR')
-  if (!perfil.whatsappVerifiedAt) motivos.push('WHATSAPP_SIN_VERIFICAR')
 
   /**
    * Una suscripción vencida sigue publicando durante la gracia.

@@ -60,6 +60,14 @@ enum PaymentStatus {
   CHARGED_BACK
 }
 
+/** Cómo entró el dinero. Los pagos manuales los registra el admin. */
+enum PaymentMethod {
+  MERCADOPAGO
+  TRANSFERENCIA
+  EFECTIVO
+  OTRO
+}
+
 /**
  * Estado de un comprobante fiscal.
  * `PENDING` y `FAILED` son estados de la cola de emisión: la factura existe en
@@ -510,19 +518,24 @@ model Profile {
   // Formato E.164 sin signos: 5493811234568.
   //
   // El número va en claro porque sin él no hay forma de armar el enlace wa.me
-  // del botón de contacto, que es la conversión del portal. Se protege lo que
-  // sí se puede proteger: `whatsappHash` es el que se consulta para detectar
-  // duplicados y lista de bloqueo, y el que se loguea enmascarado.
+  // del botón de contacto, que es la conversión del portal. Ahora es opcional:
+  // el admin crea el espacio y el profesional decide si carga su WhatsApp.
+  // `whatsappHash` es el que se consulta para detectar duplicados y lista de
+  // bloqueo.
   //
-  // Los dos son únicos de forma independiente: el hash cambia si cambia el
-  // pepper y el claro no, y tenerlos separados permite saber cuál de los dos
-  // chocó cuando el índice salta.
-  whatsappE164       String    @unique
+  // Los dos son únicos de forma independiente.
+  whatsappE164       String?   @unique
   whatsappHash       String?   @unique
   whatsappVerifiedAt DateTime?
-  // Último mensaje de la plataforma enviado a este número. Se usa para la
-  // detección de suplantación del módulo 1.7 ("NO FUI YO").
   whatsappVerifiedBy String?
+
+  // --- Personalización de la página pública ---
+  // Banner del perfil. Se guarda como URL de Cloudinary.
+  bannerUrl   String?
+
+  // Colores de la página pública, en JSON. Ejemplo:
+  // { primary: "#0A0A0A", secondary: "#25D366", background: "#FFFFFF", text: "#0A0A0A" }
+  pageColors  Json?
 
   description String?
   // Texto corto para la card en búsqueda; se recorta con line-clamp.
@@ -590,6 +603,9 @@ model Profile {
    * DNI no tiene por qué viajar en cada lectura de `Profile`.
    */
   fiscalData FiscalData?
+
+  // Servicios y productos que ofrece el profesional.
+  servicios Servicio[]
 
   // Fecha del último cobro aprobado; se usa para ordenar por actividad
   // reciente sin depender de updatedAt (que cambia por cualquier edición).
@@ -738,6 +754,35 @@ model ProfileCoverage {
 
   @@id([profileId, cityId])
   @@index([cityId])
+}
+
+/**
+ * Producto o servicio que ofrece el profesional.
+ * Cada uno tiene nombre, descripción, precio y opción de cuotas.
+ * Un profesional puede tener tantos servicios como quiera; se muestran
+ * en su perfil público para que el cliente sepa cuánto cuesta cada cosa.
+ */
+model Servicio {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  nombre        String
+  descripcion   String?
+  precio        Decimal @db.Decimal(10, 2)
+  moneda        String  @default("ARS")
+  // Si se puede pagar en cuotas, cantidad máxima de cuotas. 0 o null = sin cuotas.
+  cuotasMax     Int     @default(0)
+  // Interés por cuota en porcentaje, para mostrar el costo financiero total.
+  interesCuota  Decimal @db.Decimal(5, 2) @default(0)
+  activo        Boolean @default(true)
+
+  sortOrder   Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([profileId, activo])
+  @@index([profileId, sortOrder])
 }
 
 model Image {
@@ -930,8 +975,15 @@ model Payment {
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   // Identificador del pago en Mercado Pago. UNIQUE: el webhook puede
-  // llegar repetido y no debe generar dos pagos.
-  mpPaymentId String        @unique
+  // llegar repetido y no debe generar dos pagos. `null` en los pagos manuales
+  // (transferencia/efectivo) que registra el admin.
+  mpPaymentId String?       @unique
+  method      PaymentMethod @default(MERCADOPAGO)
+
+  // Número de operación o nota del pago manual: es lo que permite cruzar el
+  // comprobante que manda el cliente contra el movimiento real del banco.
+  reference         String?
+  registeredByEmail String?
   amount      Decimal       @db.Decimal(10, 2)
   currency    String        @default("ARS")
   status      PaymentStatus

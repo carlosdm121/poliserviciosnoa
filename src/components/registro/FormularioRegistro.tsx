@@ -1,5 +1,6 @@
 'use client'
 
+import { signIn } from 'next-auth/react'
 import { useState, useTransition } from 'react'
 
 import { registrarProfesional } from '@/app/actions/registro'
@@ -54,13 +55,27 @@ export function FormularioRegistro(): React.ReactElement {
       const resultado = await registrarProfesional({ name: nombre, email, password, whatsapp })
 
       if (resultado.ok) {
-        setEnviado(true)
+        // Iniciar sesión automáticamente después del registro. `signIn` maneja
+        // el token CSRF que el endpoint de credenciales exige.
+        try {
+          const sesion = await signIn('credentials', { redirect: false, email, password })
+
+          if (sesion && !sesion.error) {
+            window.location.href = '/panel/perfil'
+            return
+          }
+
+          setErrores({
+            form: 'Cuenta creada, pero no se pudo iniciar sesión automáticamente. Entrá desde /login con tu email y contraseña.',
+          })
+        } catch {
+          setErrores({
+            form: 'Cuenta creada, pero falló el inicio de sesión automático. Entrá desde /login con tu email y contraseña.',
+          })
+        }
         return
       }
 
-      // El mensaje del servidor no viene asociado a un campo, así que se
-      // muestra arriba. El servidor es la autoridad: si él rechaza, el
-      // frontend no debe inventar un motivo distinto.
       setErrores({ form: resultado.error })
     })
   }
@@ -84,7 +99,7 @@ export function FormularioRegistro(): React.ReactElement {
   }
 
   return (
-    <form onSubmit={manejarEnvio} noValidate className="space-y-6">
+    <form method="post" onSubmit={manejarEnvio} noValidate className="space-y-6">
       {errores.form && (
         <p role="alert" className="error">
           {errores.form}

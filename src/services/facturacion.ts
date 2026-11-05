@@ -963,7 +963,7 @@ export type FacturaAdmin = {
   pdfUrl: string | null
   profesional: string
   email: string
-  mpPaymentId: string
+  mpPaymentId: string | null
   comision: number | null
   netoPercibido: number | null
   notaCredito: { id: string; numero: number | null; cae: string | null; estado: InvoiceStatus } | null

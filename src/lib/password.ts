@@ -108,3 +108,24 @@ export function validarPoliticaPassword(password: string): void {
     )
   }
 }
+
+/**
+ * Alfabeto sin caracteres ambiguos (0/O, 1/l/I): la clave se dicta o se copia
+ * a mano, y un carácter confundido es un login que falla.
+ */
+const ALFABETO_TEMPORAL = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+
+/**
+ * Genera la contraseña temporal que el admin le entrega al profesional al
+ * crear su espacio. 12 caracteres superan la política mínima de 10.
+ */
+export function generarPasswordTemporal(longitud = 12): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(longitud))
+  let password = ''
+
+  for (const byte of bytes) {
+    password += ALFABETO_TEMPORAL[byte % ALFABETO_TEMPORAL.length]
+  }
+
+  return password
+}

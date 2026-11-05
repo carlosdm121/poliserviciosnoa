@@ -58,7 +58,9 @@ describe('evaluarPublicacion', () => {
   })
 
   it('no publica sin WhatsApp verificado', () => {
-    expect(evaluarPublicacion(sin({ whatsappVerifiedAt: null }), true).motivos).toContain(
+    // WhatsApp ya no es requisito para publicar: el admin crea el espacio y
+    // el profesional decide si carga su número después.
+    expect(evaluarPublicacion(sin({ whatsappVerifiedAt: null }), true).motivos).not.toContain(
       'WHATSAPP_SIN_VERIFICAR',
     )
   })
@@ -179,7 +181,6 @@ describe('evaluarPublicacion', () => {
     expect(evaluacion.motivos).toEqual(
       expect.arrayContaining([
         'EMAIL_SIN_VERIFICAR',
-        'WHATSAPP_SIN_VERIFICAR',
         'SIN_SUSCRIPCION',
         'SIN_IMAGENES',
         'SIN_RUBRO_PRINCIPAL',
@@ -263,7 +264,6 @@ describe('MOTIVOS_BLOQUEO', () => {
     // es la red por si alguien castea el tipo a string.
     const motivos: MotivoBloqueo[] = [
       'EMAIL_SIN_VERIFICAR',
-      'WHATSAPP_SIN_VERIFICAR',
       'SIN_SUSCRIPCION',
       'SUSCRIPCION_VENCIDA',
       'SIN_IMAGENES',

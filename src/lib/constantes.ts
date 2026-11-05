@@ -120,8 +120,7 @@ export const ROLES = {
 export const NOMBRE_PAGINA = 'PoliserviciosNOA'
 
 export const MENSAJE_CONTACTO =
-  `Hola, te vi en ${NOMBRE_PAGINA} y me interesa tu servicio, ` +
-  'quiero solicitar tus servicios'
+  'Hola, te vi en la pagina de PoliserviciosNOA y me gustaria contratar tus servicios, necesito mas informacion'
 
 /** Construye el enlace de WhatsApp con el mensaje ya codificado. */
 export function enlaceWhatsApp(numero: string): string {

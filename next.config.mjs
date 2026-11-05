@@ -2,10 +2,11 @@
 import withPWA from 'next-pwa'
 
 /**
- * CSP deliberadamente sin `unsafe-inline` en scripts: Next.js inyecta sus
- * scripts con nonce solo si se configura, y hacerlo mal abre XSS. Empezamos
- * con una CSP que rompe el arranque si algo necesita inline, y se ajusta
- * con los valores reales que reporte el navegador.
+ * Headers estáticos de next.config.
+ *
+ * La CSP NO va acá: la construye el middleware con nonce por request
+ * (ver src/lib/security-headers.ts). Tenerla también acá generaba dos
+ * cabeceras en conflicto y una CSP enforced sin nonce que rompía Next.js.
  */
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
@@ -20,23 +21,6 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // La app no usa cámara ni micrófono: cerrar todo salvo lo imprescindible.
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      // 'unsafe-inline' en estilos porque Tailwind y Next inyectan CSS inline;
-      // el riesgo real de XSS está en scripts, no en estilos.
-      "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' https://sdk.mercadopago.com",
-      "img-src 'self' data: blob: https://res.cloudinary.com",
-      "font-src 'self' data:",
-      "connect-src 'self' https://api.mercadopago.com https://api.resend.com",
-      "frame-src 'self' https://sdk.mercadopago.com",
-      "form-action 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-    ].join('; '),
-  },
 ]
 /** @type {import('next').NextConfig} */
 const nextConfig = {

@@ -15,6 +15,7 @@ import type { UserRole } from '@prisma/client'
 export type SeccionAdmin =
   | 'inicio'
   | 'perfiles'
+  | 'espacios'
   | 'aprobaciones'
   | 'riesgos'
   | 'empresas'
@@ -51,6 +52,13 @@ export const SECCIONES_ADMIN: readonly Seccion[] = [
     label: 'Perfiles',
     descripcion: 'Buscar, revisar y suspender perfiles.',
     soloAdmin: false,
+  },
+  {
+    key: 'espacios',
+    href: '/admin/espacios',
+    label: 'Crear espacio',
+    descripcion: 'Alta de un profesional que ya pagó.',
+    soloAdmin: true,
   },
   {
     key: 'aprobaciones',

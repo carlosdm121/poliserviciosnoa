@@ -1,31 +1,38 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
+import { getSession, signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
+/** El panel de destino depende del rol: `/panel` es solo para profesionales. */
+async function destinoPorRol(): Promise<string> {
+  const sesion = await getSession()
+  const rol = sesion?.user?.role
+
+  if (rol === 'ADMIN' || rol === 'MODERADOR') return '/admin'
+  if (rol === 'CLIENT') return '/mis-contactos'
+  return '/panel'
+}
+
 /**
  * Formulario de login.
  *
- * Muestra un solo error genérico para todos los casos. Distinguir entre "ese
- * email no existe" y "la contraseña está mal" convierte el formulario en una
- * herramienta para enumerar qué correos están registrados en la plataforma.
- *
- * El `callbackUrl` viene de la query porque el middleware lo manda cuando
- * corta el acceso: sin eso, un profesional que intentó entrar a /panel cae en
- * la home y no entiende qué pasó.
+ * Usa `signIn` de next-auth: se encarga del token CSRF que el endpoint de
+ * credenciales exige. Un POST directo sin ese token es rechazado.
  */
 export function FormularioLogin(): React.ReactElement {
   const parametros = useSearchParams()
-  const callbackUrl = parametros.get('callbackUrl') ?? '/panel'
+  const callbackUrl = parametros.get('callbackUrl')
+  const emailDesdeRegistro = parametros.get('email') ?? ''
+  const registroOk = parametros.get('registro') === 'ok'
 
   const [error, setError] = useState<string | null>(null)
   const [estaProcesando, iniciarTransicion] = useTransition()
 
-  function manejarEnvio(evento: React.FormEvent<HTMLFormElement>): void {
+  async function manejarEnvio(evento: React.FormEvent<HTMLFormElement>): Promise<void> {
     evento.preventDefault()
     setError(null)
 
@@ -35,26 +42,27 @@ export function FormularioLogin(): React.ReactElement {
 
     iniciarTransicion(async () => {
       const resultado = await signIn('credentials', {
+        redirect: false,
         email,
         password,
-        callbackUrl,
-        redirect: false,
       })
 
-      if (resultado?.error) {
-        setError(
-          'No pudimos entrar. Revisá tu email y contraseña, y confirmá que tu email esté ' +
-            'verificado (revisá la carpeta de spam si no encontrás el enlace).',
-        )
+      if (!resultado || resultado.error) {
+        setError('No pudimos entrar. Revisá tu email y contraseña.')
         return
       }
 
-      window.location.href = resultado?.url ?? callbackUrl
+      window.location.href = callbackUrl ?? (await destinoPorRol())
     })
   }
 
   return (
-    <form onSubmit={manejarEnvio} noValidate className="space-y-6">
+    <form method="post" onSubmit={manejarEnvio} noValidate className="space-y-6">
+      {registroOk && (
+        <p role="status" className="exito">
+          Cuenta creada. Ya podés entrar con tu contraseña.
+        </p>
+      )}
       {error && (
         <p role="alert" className="error">
           {error}
@@ -67,6 +75,7 @@ export function FormularioLogin(): React.ReactElement {
         type="email"
         autoComplete="email"
         required
+        defaultValue={emailDesdeRegistro}
       />
 
       <Input

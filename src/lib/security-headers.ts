@@ -38,16 +38,27 @@ const CSP_CLAVE = cspReportOnly()
 /** Endpoint al que el navegador envía los reportes de violación de la CSP. */
 const CSP_REPORTE = '/api/reportes/csp'
 
+/** En desarrollo la CSP se desactiva para no romper Next.js. */
+export function cspHabilitada(): boolean {
+  return process.env.NODE_ENV !== 'development'
+}
+
 /**
  * Construye el valor de la cabecera CSP.
  *
- * @param nonce Nonce generado para este request (se inyecta en scripts inline).
+ * En desarrollo no se envía CSP: Next.js necesita unsafe-eval y unsafe-inline
+ * para el refresh de módulos, y aplicarlo rompe el sitio.
+ *
+ * @param nonce Nonce generado para este request (ignorado en desarrollo).
  */
 export function construirCSP(nonce: string): string {
+  if (!cspHabilitada()) {
+    return ''
+  }
+
   return [
     "default-src 'self'",
-    // Estilos: Tailwind y Next inyectan CSS inline; se tolera 'unsafe-inline'
-    // porque el riesgo real de XSS está en scripts, no en estilos.
+    // Estilos: Tailwind y Next inyectan CSS inline.
     "style-src 'self' 'unsafe-inline'",
     // Scripts: solo los firmados con nonce del servidor, más Mercado Pago.
     `script-src 'self' 'nonce-${nonce}' https://sdk.mercadopago.com`,
@@ -92,7 +103,11 @@ export function headersSeguridad(
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',
-    [CSP_CLAVE]: construirCSP(nonce),
+  }
+
+  // Solo enviar CSP si está habilitada (producción).
+  if (cspHabilitada()) {
+    headers[CSP_CLAVE] = construirCSP(nonce)
   }
 
   // Reporte de CSP: el navegador envía las violaciones a este endpoint.
