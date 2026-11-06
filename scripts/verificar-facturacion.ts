@@ -113,18 +113,20 @@ async function crearPago(
   sufijo: string,
   monto = 10000,
 ): Promise<{ id: string; mpPaymentId: string }> {
-  return prisma.payment.create({
+  const mpPaymentId = `factura-pago-${sufijo}-${Math.random().toString(36).slice(2, 8)}`
+  const pago = await prisma.payment.create({
     data: {
       subscriptionId: perfil.subscriptionId,
-      mpPaymentId: `factura-pago-${sufijo}-${Math.random().toString(36).slice(2, 8)}`,
+      mpPaymentId,
       amount: new Prisma.Decimal(monto),
       status: PaymentStatus.APPROVED,
       paidAt: new Date(),
       feeAmount: new Prisma.Decimal(Math.round(monto * 0.035 * 100) / 100),
       netAmount: new Prisma.Decimal(monto - Math.round(monto * 0.035 * 100) / 100),
     },
-    select: { id: true, mpPaymentId: true },
+    select: { id: true },
   })
+  return { id: pago.id, mpPaymentId }
 }
 
 async function borrar(perfiles: PerfilDePrueba[]): Promise<void> {
