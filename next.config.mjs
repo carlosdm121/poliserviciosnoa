@@ -36,6 +36,11 @@ const nextConfig = {
         hostname: 'res.cloudinary.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
+        pathname: '/**',
+      },
     ],
     // El 90% del tráfico es móvil con 3G/4G: formatos modernos y tamaños
     // acotados para no gastar datos de más.
@@ -74,6 +79,8 @@ const nextConfig = {
 
   // Desactiva el header X-Powered-By de Next.js para no revelar el framework.
   poweredByHeader: false,
+
+  optimizePackageImports: ['lucide-react'],
 }
 
 export default nextConfig

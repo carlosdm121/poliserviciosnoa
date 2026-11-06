@@ -27,6 +27,15 @@ const config: Config = {
         // Grises de apoyo para bordes y texto secundario.
         line: '#0A0A0A',
         muted: '#6B6B6B',
+        // Colores de la marca: escudo metálico con resplandor azul (logo).
+        // Se usan en el header nuevo para que los dos logos convivan sin recortes.
+        noa: {
+          void: '#040A14',
+          blue: '#0A84FF',
+          cyan: '#22D3EE',
+          silver: '#DCE6F2',
+          mist: '#8FA9C2',
+        },
       },
       fontFamily: {
         // Serif condensada para titulares: da el carácter editorial y es

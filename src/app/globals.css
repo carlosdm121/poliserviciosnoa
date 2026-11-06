@@ -15,6 +15,17 @@
 
 :root {
   color-scheme: light;
+
+  --color-primary: #0A84FF;
+  --color-primary-dark: #0B5BD3;
+  --color-navy: #05080F;
+  --color-accent: #22D3EE;
+  --color-bg: #F4F7FB;
+  --color-border: #E5EAF2;
+  --color-text: #0B1220;
+  --color-white: #FFFFFF;
+  --color-chip-bg: #FFFFFF;
+  --color-chip-border: #E5EAF2;
 }
 
 @layer base {
@@ -116,6 +127,26 @@
     @apply border-[3px] border-ink bg-green-50 px-4 py-3 text-sm font-medium;
   }
 
+  /* Alerta animada de la barra de utilidad: barra de brillo que recorre el
+     elemento de izquierda a derecha. Respeta prefers-reduced-motion. */
+  .alerta-brillo {
+    @apply relative overflow-hidden;
+  }
+
+  .alerta-brillo::after {
+    content: '';
+    @apply absolute inset-0 pointer-events-none opacity-70;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    transform: translateX(-120%);
+    animation: brillo-bar 4s linear infinite;
+  }
+
+  @keyframes brillo-bar {
+    to {
+      transform: translateX(260%);
+    }
+  }
+
   /* Barra de progreso de la galería.
      Se usa <progress> y no un div con ancho, y no por semántica: el elemento
      nativo ya anuncia el porcentaje a un lector de pantalla y expone el valor
@@ -139,6 +170,117 @@
 
   .progreso::-moz-progress-bar {
     @apply bg-ink;
+  }
+}
+
+.seccion-busqueda {
+  padding: clamp(2.5rem, 6vw, 4rem) 1rem clamp(3rem, 8vw, 4.5rem);
+}
+
+.seccion-busqueda .grupos-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .seccion-busqueda .grupos-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .seccion-busqueda .grupos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.75rem;
+  }
+}
+
+.seccion-busqueda .grupo-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.seccion-busqueda .grupo-card:hover {
+  box-shadow: 0 4px 12px rgba(10, 132, 255, 0.12);
+}
+
+.seccion-busqueda .grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.seccion-busqueda .grupo-accent-bar {
+  flex: 0 0 4px;
+  height: 1.5rem;
+  background: var(--color-primary);
+  border-radius: 2px;
+}
+
+.seccion-busqueda .grupo-titulo-texto {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.seccion-busqueda .chip-busqueda {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  background: var(--color-chip-bg);
+  border: 1px solid var(--color-chip-border);
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+  text-decoration: none;
+  min-height: 44px;
+  min-width: 80px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.seccion-busqueda .chip-busqueda:hover,
+.seccion-busqueda .chip-busqueda:focus-visible {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+  outline: none;
+}
+
+.seccion-busqueda .chip-busqueda:active {
+  transform: translateY(0);
+}
+
+.seccion-busqueda .chip-busqueda .conteo {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.seccion-busqueda .chip-busqueda:hover .conteo,
+.seccion-busqueda .chip-busqueda:focus-visible .conteo {
+  opacity: 0.9;
+}
+
+/* Respeta la preferencia de menos movimiento para los chips también */
+@media (prefers-reduced-motion: reduce) {
+  .seccion-busqueda .chip-busqueda {
+    transition-duration: 0.01ms !important;
   }
 }
 

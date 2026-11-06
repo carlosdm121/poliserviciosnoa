@@ -1078,3 +1078,35 @@ No hay impersonación: un admin que necesita ver lo que ve un profesional usa el
 **Estado:** decidido 2026-10-29, vigente
 
 `Category` y `City` tienen `isActive`. Borrarlos se llevaría puestos los perfiles asociados y un profesional que pagó el mes no puede desaparecer porque alguien limpió el catálogo. Para fusionar dos localidades existe "reasignar": mueve la ciudad base y la cobertura de la origen a la destino, desactiva la origen y audita el movimiento. La operación no se puede deshacer desde el panel; el aviso lo dice antes de ejecutar.
+
+---
+
+## D45 - El admin crea el espacio y acredita el primer pago a mano
+
+**Estado:** decidido 2026-11-05, vigente
+
+El alta de un espacio puede hacerla el admin desde `/admin/espacios` (nombre,
+email, ciudad y rubro principal). El sistema crea el usuario `PROFESSIONAL` con
+una clave temporal, crea la suscripción en `PENDING` y entrega las credenciales.
+El profesional completa el perfil en `/panel/espacio`; no se publica hasta que
+la suscripción pase a `ACTIVE` y estén las fotos y la descripción (D4).
+
+La suscripción **no se activa al crear el espacio ni con un comprobante**: el
+admin la acredita desde "Espacios recientes" cuando ve la transferencia en el
+banco, con método, monto y N° de operación (obligatorio en transferencia). Eso
+crea un `Payment` `APPROVED` con `method`, `reference` y `registeredByEmail`,
+activa 30 días, deja auditoría `suscripcion.pago_manual` y aparece en Finanzas.
+La actualización es condicional: si ya está activa, rechaza la segunda
+acreditación.
+
+**Por qué a mano:** el sistema no puede verificar una transferencia contra el
+banco. Aceptar una captura o la palabra del profesional convierte el alta en una
+puerta para perfiles fantasma; el admin ya opera la cuenta y acreditar es un
+clic. El flujo de Mercado Pago queda para el alta autoservicio, sin cambios.
+
+**Consecuencias:** `Payment.mpPaymentId` es nullable (un pago manual no tiene id
+de MP) y el reembolso de esos pagos es manual; `/arrepentimiento` avisa que no se
+devuelve por Mercado Pago. El pago manual no genera factura ARCA automática: la
+facturación actual solo procesa pagos de MP. Si el volumen de transferencias
+crece, el paso siguiente es un comprobante interno o un alta de factura manual,
+no relajar la acreditación.

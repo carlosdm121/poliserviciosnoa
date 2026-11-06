@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 import { AccesosPorProvincia, BuscadorHome } from '@/components/home/BuscadorHome'
+import { HeroSlideshow } from '@/components/home/HeroSlideshow'
 import { InstalarApp } from '@/components/legales/InstalarApp'
 import { prisma } from '@/lib/prisma'
 import { NOMBRE_PAGINA, PROVINCIAS, PROVINCIAS_LISTA } from '@/lib/constantes'
@@ -86,51 +87,73 @@ export default async function HomePage(): Promise<React.ReactElement> {
   return (
     <>
       {/* ------------------------------------------------------------------
-       * Hero
-       * Rompe el patrón de "título centrado + subtítulo + botón": el
-       * buscador es el protagonista y el titular va a la izquierda, en un
-       * tamaño que rompe el grid.
+       * Hero: carrusel de fondo con desvanecimiento entre imágenes.
+       * En las imágenes de trabajo se ven las letras del hero; en hero.webp
+       * solo se muestra la imagen, sin texto encima.
+       * El overlay (texto + buscador) se pasa como children desde el server
+       * para no romper la frontera server -> client.
        * ---------------------------------------------------------------- */}
-      <section className="border-b-[3px] border-ink">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-20">
-          <p className="text-sm font-black uppercase tracking-widest">
-            Tucumán · Salta · Santiago del Estero · Catamarca · Jujuy
-          </p>
+      <HeroSlideshow
+        items={[
+          { src: '/trabajo1.webp', conTexto: true },
+          { src: '/trabajo2.webp', conTexto: true },
+          { src: '/trabajo3.webp', conTexto: true },
+          { src: '/trabajo4.webp', conTexto: true },
+          { src: '/hero.webp', conTexto: false },
+        ]}
+      >
+        <div className="mx-auto min-w-0 max-w-6xl w-full">
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-widest">
+              Tucumán · Salta · Santiago del Estero · Catamarca · Jujuy
+            </p>
 
-          <h1 className="mt-4 max-w-4xl text-display font-black uppercase">
-            El profesional
-            <br />
-            que necesitás,
-            <br />
-            <span className="whitespace-nowrap">en tu zona.</span>
-          </h1>
+            <h1 className="mt-4 max-w-4xl text-display font-black uppercase">
+              El profesional
+              <br />
+              que necesitás,
+              <br />
+              <span>en tu zona.</span>
+            </h1>
 
-          <p className="mt-6 max-w-prose text-lg leading-relaxed">
-            Plomeros, electricistas, beauty, fletes, clases y más. Los encontrás por rubro y ciudad,
-            y los contactás directo por WhatsApp. Sin comisiones ni intermediarios.
-          </p>
+            <p className="mt-6 max-w-prose text-lg leading-relaxed">
+              Plomeros, electricistas, beauty, fletes, clases y más. Los encontrás por rubro y ciudad,
+              y los contactás directo por WhatsApp. Sin comisiones ni intermediarios.
+            </p>
 
-          <div className="mt-10">
-            <BuscadorHome />
+            <div className="mt-10">
+              <BuscadorHome />
+            </div>
           </div>
         </div>
-      </section>
+      </HeroSlideshow>
 
       {/* ------------------------------------------------------------------
        * Rubros
-       * Cada grupo es una sección con su lista. 57 rubros en una grilla
-       * única son 57 decisiones: hay que agrupar para que se pueda elegir.
+       * Cada grupo es una card. 57 rubros en una grilla única son 57
+       * decisiones: hay que agrupar para que se pueda elegir.
        * ---------------------------------------------------------------- */}
-      <section aria-labelledby="titulo-rubros" className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
-        <h2 id="titulo-rubros" className="text-title font-black uppercase">
+      <section
+        aria-labelledby="titulo-rubros"
+        className="seccion-busqueda mx-auto max-w-6xl px-4"
+      >
+        <h2
+          id="titulo-rubros"
+          className="text-title font-black uppercase"
+        >
           ¿Qué estás buscando?
+          <span
+            className="mt-3 block h-2 w-24 rounded-full bg-gradient-to-r from-noa-blue to-noa-cyan"
+            aria-hidden="true"
+          />
         </h2>
 
-        <div className="mt-8 space-y-10">
+        <div className="mt-10 grupos-grid">
           {grupos.map((grupo) => (
-            <div key={grupo.id}>
-              <h3 className="border-b-[3px] border-ink pb-2 text-xl font-black uppercase tracking-tight">
-                {grupo.name}
+            <div key={grupo.id} className="grupo-card">
+              <h3 className="grupo-titulo">
+                <span className="grupo-accent-bar" aria-hidden="true" />
+                <span className="grupo-titulo-texto">{grupo.name}</span>
               </h3>
 
               <ul className="mt-4 flex flex-wrap gap-2">
@@ -138,13 +161,13 @@ export default async function HomePage(): Promise<React.ReactElement> {
                   <li key={rubro.id}>
                     <Link
                       href={`/buscar?rubro=${rubro.slug}`}
-                      className="etiqueta min-h-[44px] transition-colors hover:bg-ink hover:text-paper"
+                      className="chip-busqueda"
                     >
                       {rubro.name}
                       {/* El contador solo se muestra si hay oferta. Decir "0" en
                           un rubro es lo peor que puede mostrar la home. */}
                       {(perfilesPorRubro.get(rubro.id) ?? 0) > 0 && (
-                        <span className="opacity-60">{perfilesPorRubro.get(rubro.id)}</span>
+                        <span className="conteo">{perfilesPorRubro.get(rubro.id)}</span>
                       )}
                     </Link>
                   </li>

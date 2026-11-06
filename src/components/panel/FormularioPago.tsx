@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 
 import { suscribirme } from '@/app/actions/suscripcion'
 import { Button } from '@/components/ui/Button'
+import { FallbackPago } from '@/components/panel/FallbackPago'
 
 /**
  * Botón de pago.
@@ -97,6 +98,9 @@ export function FormularioPago({
           Pagar y activar
         </Button>
       </div>
+
+      <FallbackPago />
+
     </div>
   )
 }

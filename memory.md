@@ -833,3 +833,72 @@ typecheck, lint, tests (395) y build en verde.
 
 Siguiente: **Fase 4 — Lanzamiento** (deploy a Vercel, monitoreo, facturación ARCA real, cupones, PWA en producción, soporte).
 
+---
+
+## Sesión 2026-11-05 — alta de espacios, pago manual y login por rol
+
+**Estado: verificado y subido a GitHub.** Commit `a16bcda` en `main` de
+`carlosdm121/poliserviciosnoa` (49 archivos). Typecheck, lint y **450 tests** en
+verde.
+
+### Qué quedó
+
+| Pieza | Dónde |
+|---|---|
+| Alta de espacio por admin (nombre, email, ciudad, rubro; clave temporal) | `src/app/actions/admin/crear-perfil.ts`, `src/components/admin/FormularioCrearEspacio.tsx` |
+| Suscripción nace `PENDING` (sin fechas) | `crear-perfil.ts` |
+| Acreditación manual de pago | `src/app/actions/admin/acreditar-pago.ts` |
+| Formulario de acreditación | `src/components/admin/FormularioAcreditarPago.tsx` |
+| Lista "Espacios recientes" con estado y acreditación | `src/app/admin/espacios/page.tsx` |
+| `PaymentMethod` + `Payment.mpPaymentId` opcional + `method/reference/registeredByEmail` | `prisma/schema.prisma` |
+| Guard de reembolso para pagos manuales | `src/services/cancelaciones.ts` |
+| Fix del bucle de login (`sessionVersion` en authorize/JWT) | `src/lib/auth.ts` |
+| SW seguro + 403 por rol | `public/sw.js`, `src/app/no-autorizado/page.tsx` |
+
+**Flujo:** admin crea el espacio → profesional recibe credenciales → completa
+perfil/fotos/descripción en `/panel/espacio` → sigue `PENDING` y sin publicar →
+cuando el admin ve la transferencia en el banco, "Acreditar pago" (método, monto,
+N° de operación obligatorio en transferencia) → `ACTIVE` 30 días, `Payment`
+`APPROVED`, auditoría `suscripcion.pago_manual`, aparece en Finanzas. La
+acreditación es condicional: si ya está activa, rechaza la segunda.
+
+**Por qué manual:** no hay forma de validar un comprobante de transferencia
+desde el sistema; acreditar solo cuando el dinero está en el banco evita perfiles
+fantasma y comprobantes falsos. El flujo de Mercado Pago sigue intacto para el
+alta autoservicio.
+
+**Límites:** el pago manual no emite `Invoice` de ARCA (solo los de MP) y el
+reembolso es manual; `/arrepentimiento` muestra ese aviso en vez de intentar
+devolver por MP. Finanzas suma `netAmount`, por eso el pago manual se registra
+con `feeAmount: 0`.
+
+**E2E verificado:** alta → `PENDING` → acreditar transferencia `OP-123456` →
+`ACTIVE` 30 días exactos, pago con método/referencia/admin, auditoría presente y
+fila "Activa hasta 04/12/2026".
+
+### Próxima sesión (pedido del usuario)
+
+- **Dar estilo a la página.** Respetar D6: Brutalist/Editorial, B/N y verde
+  WhatsApp solo en el botón de contacto; bordes gruesos, sin radios ni sombras
+  difusas, táctil 44px. Definir alcance (home/público, panel o admin) antes de
+  tocar.
+- Antes de probar: reiniciar `npm run dev` (se mató el server para regenerar
+  Prisma), limpiar el service worker viejo una vez y volver a loguearse.
+- Rotar el token de GitHub que se compartió en el chat; no guardarlo en el repo.
+- Funcional pendiente del plan original: 3.5 invitación a valorar, 3.6 dashboard,
+  3.7 reclamos; después Fase 4.
+
+### Aprendizajes
+
+- **El E2E encontró un formulario incompleto:** `FormularioAcreditarPago` no
+  enviaba `profileId` (faltaba el hidden) y la acción respondía "Elegí el espacio
+  a acreditar". Typecheck y tests no lo detectan; el flujo real sí.
+- **`router.refresh()` puede borrar el mensaje de éxito** de un componente
+  cliente al re-renderizar el servidor. La confirmación que queda es el estado de
+  la fila ("Activa hasta ..."); no confiar solo en el cartel.
+- **`prisma generate` da EPERM si el dev server está corriendo.** Matar el
+  proceso que tiene tomada la DLL y regenerar.
+- **Un test flaky aparece si `npm test` corre en paralelo con typecheck/lint**
+  (contención de CPU). Correr `npm test` solo; 450/450.
+- **No commitear artefactos:** `.tmp-*` quedó fuera; `.env` sigue ignorado.
+
