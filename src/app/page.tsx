@@ -101,32 +101,30 @@ export default async function HomePage(): Promise<React.ReactElement> {
           { src: '/trabajo4.webp', conTexto: true },
           { src: '/hero.webp', conTexto: false },
         ]}
-      >
-        <div className="mx-auto min-w-0 max-w-6xl w-full">
-          <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-widest">
+        texto={
+          /* Contenido del texto: se muestra solo en slides con conTexto=true.
+             Texto en blanco con acento cian, sans-serif bold, fluido con clamp. */
+          <div className="hero-texto">
+            <p className="text-sm font-black uppercase tracking-widest text-noa-cyan">
               Tucumán · Salta · Santiago del Estero · Catamarca · Jujuy
             </p>
 
-            <h1 className="mt-4 max-w-4xl text-display font-black uppercase">
+            <h1 className="mt-4 max-w-4xl text-[clamp(2rem,6vw,3.5rem)] font-black uppercase leading-[1.05] text-white">
               El profesional
               <br />
               que necesitás,
               <br />
-              <span>en tu zona.</span>
+              <span className="text-noa-cyan">en tu zona.</span>
             </h1>
 
-            <p className="mt-6 max-w-prose text-lg leading-relaxed">
+            <p className="mt-6 max-w-prose text-base sm:text-lg text-white/90 leading-relaxed">
               Plomeros, electricistas, beauty, fletes, clases y más. Los encontrás por rubro y ciudad,
               y los contactás directo por WhatsApp. Sin comisiones ni intermediarios.
             </p>
-
-            <div className="mt-10">
-              <BuscadorHome />
-            </div>
           </div>
-        </div>
-      </HeroSlideshow>
+        }
+        buscador={<BuscadorHome />}
+      />
 
       {/* ------------------------------------------------------------------
        * Rubros

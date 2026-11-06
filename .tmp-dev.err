@@ -1,0 +1,129 @@
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at DevRouteMatcherManager.reload (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\future\route-matcher-managers\default-route-matcher-manager.js:112:55)
+    at async DevRouteMatcherManager.reload (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\future\route-matcher-managers\dev-route-matcher-manager.js:112:9)
+    at async Object.propagateServerField (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\render-server.js:75:13)
+    at async propagateServerField (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:134:5)
+    at async Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:627:17)
+ ⨯ unhandledRejection: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at DevRouteMatcherManager.reload (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\future\route-matcher-managers\default-route-matcher-manager.js:112:55)
+    at async DevRouteMatcherManager.reload (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\future\route-matcher-managers\dev-route-matcher-manager.js:112:9)
+    at async Object.propagateServerField (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\render-server.js:75:13)
+    at async propagateServerField (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:134:5)
+    at async Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:627:17)
+ ⨯ unhandledRejection: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at DevRouteMatcherManager.reload (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\future\route-matcher-managers\default-route-matcher-manager.js:112:55)
+    at async DevRouteMatcherManager.reload (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\future\route-matcher-managers\dev-route-matcher-manager.js:112:9)
+    at async Object.propagateServerField (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\render-server.js:75:13)
+    at async propagateServerField (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:134:5)
+    at async Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:627:17)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)
+ ⚠ Failed to reload dynamic routes: Error: You cannot use different slug names for the same dynamic path ('rubro' !== 'ciudad').
+    at handleSlug (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:94:31)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:131:17)
+    at UrlNode._insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:142:40)
+    at UrlNode.insert (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:13:14)
+    at C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:46
+    at Array.forEach (<anonymous>)
+    at getSortedRoutes (C:\Users\PC\Desktop\rubro\node_modules\next\dist\shared\lib\router\utils\sorted-routes.js:165:21)
+    at Watchpack.<anonymous> (C:\Users\PC\Desktop\rubro\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js:558:65)

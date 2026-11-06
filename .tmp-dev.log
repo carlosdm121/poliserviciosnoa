@@ -1,0 +1,10 @@
+
+> poliservicios-noa@0.1.0 dev
+> next dev -p 3300
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3300
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 16s

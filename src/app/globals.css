@@ -284,6 +284,227 @@
   }
 }
 
+/* =========================================================================
+ * HERO — sección de portada.
+ * =========================================================================
+ *
+ * Altura fluida con svh (mobile-safe, sin 100vh rebote en Chrome móvil).
+ * Slider automático de 6s con crossfade. El buscador permanece visible en
+ * todos los slides; el texto (etiqueta+título+párrafo) solo aparece en slides
+ * de foto (trabajo1-4). En el banner (hero.webp) se oculta visualmente pero
+ * permanece en el DOM para SEO y lectores de pantalla.
+ */
+
+/* Altura del hero: svh con fallback a 100vh, nunca fija en px. Garantiza
+   que el contenedor (y las imgs con fill) nunca colapsen a 0 en móvil. */
+.hero-altura {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 40svh;
+  min-height: 40vh;
+  padding: clamp(2rem, 6vh, 6rem) 0;
+}
+
+@media (min-width: 768px) {
+  .hero-altura {
+    min-height: 52svh;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-altura {
+    min-height: 55svh;
+  }
+}
+
+/* Texto del hero: solo visible en slides con conTexto=true */
+.hero-texto {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 3vw, 2rem);
+  padding-top: clamp(1.5rem, 4vw, 3rem);
+}
+
+.hero-texto .text-noa-cyan {
+  color: var(--color-accent);
+}
+
+/* En el banner (hero.webp) el texto se oculta visualmente con la técnica
+ * de visually-hidden: permanece en el DOM pero no se ve. */
+.hero-banner .hero-texto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ======================= ESTADO BANNER (hero.webp) ======================= */
+/* Contenedor del banner con aspect-ratio real de la imagen (2048×768 ≈ 8:3).
+   La imagen dentro usa object-fit: contain para NO recortar los costados. */
+.banner-imagen {
+  width: 100%;
+  aspect-ratio: 8 / 3;
+  background: var(--color-navy);
+  overflow: hidden;
+}
+
+.banner-imagen img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Franja navy sólida que envuelve al buscador (funda con el lado izq. de la imagen) */
+.banner-franja {
+  background: var(--color-navy);
+  padding: clamp(1.5rem, 4vw, 3rem) 0;
+}
+
+/* Buscador: siempre visible, barra blanca con borde y sombra suave.
+   Siempre en flujo normal del hero, nunca absoluto. */
+.hero-buscador {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: clamp(0.625rem, 2vw, 1rem);
+  box-shadow: 0 10px 25px rgba(5, 8, 15, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .hero-buscador {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    max-width: 900px;
+  }
+}
+
+/* Campos del buscador dentro del hero. */
+.hero-buscador input,
+.hero-buscador select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  background: var(--color-white);
+  font-family: inherit;
+}
+
+@media (min-width: 768px) {
+  .hero-buscador input,
+  .hero-buscador select {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+}
+
+.hero-buscador input::placeholder {
+  color: #9ca3af;
+}
+
+.hero-buscador input:focus,
+.hero-buscador select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
+}
+
+/* Botón del buscador: azul primario, texto blanco, hover con elevación. */
+.hero-buscador button[type="submit"] {
+  min-height: 44px;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: 10px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .hero-buscador button[type="submit"] {
+    min-height: 48px;
+    padding: 0.5rem 1.5rem;
+  }
+}
+
+.hero-buscador button[type="submit"]:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+}
+
+.hero-buscador button[type="submit"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.5);
+}
+
+/* Fila de confianza debajo del buscador. (Opcional, se añade por page.tsx) */
+.hero-confianza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(1rem, 3vw, 2rem);
+  margin-top: clamp(1rem, 2vw, 1.5rem);
+  padding-top: clamp(1rem, 2vw, 1.5rem);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+.hero-confianza span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hero-confianza svg {
+  color: var(--color-accent);
+}
+
+/* Respeta prefers-reduced-motion: desactiva el crossfade del slider. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-altura img {
+    transition-duration: 0.01ms !important;
+    animation: none !important;
+  }
+}
+
+/* Utilidad de ocultamiento visual para accesibilidad: permanece en el DOM
+ * pero no se renderiza. Usada por lectores de pantalla. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 @layer utilities {
   /* Oculta la barra de scroll sin dejar de permitir scroll.
      Para listas horizontales de categorías en móvil. */

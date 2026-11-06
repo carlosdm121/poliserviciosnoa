@@ -12,8 +12,8 @@ import { PROVINCIAS, PROVINCIAS_LISTA } from '@/lib/constantes'
 export function BuscadorHome(): React.ReactElement {
   return (
     <form action="/buscar" method="get" className="w-full max-w-3xl">
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-        <div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:gap-0.5rem sm:items-center">
+        <div className="w-full">
           <label htmlFor="q" className="sr-only">
             ¿Qué servicio necesitás?
           </label>
@@ -23,28 +23,29 @@ export function BuscadorHome(): React.ReactElement {
             type="search"
             placeholder="Plomero, corte de pelo, flete…"
             className="campo text-lg"
-            // Enter ya dispara el envío: no hace falta un botón de buscar
-            // que ocupe medio ancho en un celular.
+            defaultValue=""
           />
         </div>
 
-        <div>
-          <label htmlFor="provincia" className="sr-only">
-            Provincia
-          </label>
-          <select id="provincia" name="provincia" className="campo text-lg" defaultValue="">
-            <option value="">Toda la región</option>
-            {PROVINCIAS_LISTA.map((provincia) => (
-              <option key={provincia} value={PROVINCIAS[provincia].slug}>
-                {PROVINCIAS[provincia].nombre}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:items-center sm:flex-1">
+          <div className="sm:w-[200px]">
+            <label htmlFor="provincia" className="sr-only">
+              Provincia
+            </label>
+            <select id="provincia" name="provincia" className="campo text-lg">
+              <option value="">Toda la región</option>
+              {PROVINCIAS_LISTA.map((provincia) => (
+                <option key={provincia} value={PROVINCIAS[provincia].slug}>
+                  {PROVINCIAS[provincia].nombre}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <button type="submit" className="btn-oscuro px-8">
-          Buscar
-        </button>
+          <button type="submit" className="btn-oscuro">
+            Buscar
+          </button>
+        </div>
       </div>
     </form>
   )
