@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { authOptions } from '@/lib/auth'
 import { enviarEmailConstanciaSupresion } from '@/lib/email'
+import { logger } from '@/lib/logger'
 import { privacidadEjecutarSupresion } from '@/app/actions/privacidad'
 import { prisma } from '@/lib/prisma'
 
@@ -56,7 +57,7 @@ export default async function PaginaConfirmarSupresion({
     tramite,
   }).catch((error: unknown) => {
     // No falla la confirmación si el email no se envía.
-    console.error('privacidad: no se pudo enviar constancia de supresión', error)
+    logger.error('privacidad: no se pudo enviar constancia de supresión', { error })
   })
 
   redirect(

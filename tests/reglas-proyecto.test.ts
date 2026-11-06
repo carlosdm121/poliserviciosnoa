@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -45,9 +45,20 @@ async function archivosTypeScript(dir: string): Promise<string[]> {
   return archivos
 }
 
+/**
+ * Ruta relativa a la raíz del repo, siempre con "/".
+ *
+ * `path.relative` + normalización evita depender del separador del sistema:
+ * en Linux las rutas absolutas no matcheaban los prefijos permitidos y los
+ * archivos legítimos aparecían como infractores.
+ */
+function rutaRelativa(archivo: string): string {
+  return relative(process.cwd(), archivo).replaceAll('\\', '/')
+}
+
 /** ¿El archivo está en la lista de permitidos? */
 function esPermitido(ruta: string): boolean {
-  const relativa = ruta.replace(`${process.cwd()}\\`, '').replaceAll('\\', '/')
+  const relativa = rutaRelativa(ruta)
 
   return RUTAS_PERMITIDAS.some((permitida) => relativa.endsWith(permitida))
 }
@@ -70,7 +81,7 @@ describe('isPublished tiene un solo dueño', () => {
         /update\(\s*\{[^}]*\bisPublished\s*:/s.test(contenido) ||
         /\bisPublished\s*:\s*(true|false)\s*,\s*\n\s*unpublishedReason/s.test(contenido)
 
-      if (escribe) infractores.push(archivo.replace(`${process.cwd()}\\`, ''))
+      if (escribe) infractores.push(rutaRelativa(archivo))
     }
 
     expect(
@@ -138,7 +149,7 @@ describe('el precio no está hardcodeado', () => {
     const infractores: string[] = []
 
     for (const archivo of archivos) {
-      const relativa = archivo.replace(`${process.cwd()}\\`, '').replaceAll('\\', '/')
+      const relativa = rutaRelativa(archivo)
 
       if (RUTAS_CON_MONTO_PERMITIDO.some((permitida) => relativa.endsWith(permitida))) continue
 
@@ -166,7 +177,7 @@ describe('el precio no está hardcodeado', () => {
     const infractores: string[] = []
 
     for (const archivo of archivos) {
-      const relativa = archivo.replace(`${process.cwd()}\\`, '').replaceAll('\\', '/')
+      const relativa = rutaRelativa(archivo)
 
       if (relativa.endsWith('src/lib/dinero.ts')) continue
 
@@ -189,13 +200,15 @@ describe('reglas de los datos personales', () => {
     const infractores: string[] = []
 
     for (const archivo of archivos) {
-      const relativa = archivo.replace(`${process.cwd()}\\`, '').replaceAll('\\', '/')
+      const relativa = rutaRelativa(archivo)
 
-      // Los componentes cliente pueden loguear; la regla es para el servidor.
-      if (relativa.startsWith('src/components') || relativa.startsWith('src/app')) continue
-      if (relativa.includes('logger.ts')) continue
+      if (relativa.endsWith('logger.ts')) continue
 
       const contenido = await readFile(archivo, 'utf8')
+
+      // Los componentes cliente pueden loguear; la regla es para el servidor.
+      const inicio = contenido.trimStart()
+      if (inicio.startsWith("'use client'") || inicio.startsWith('"use client"')) continue
 
       if (/console\.(log|error|warn|info|debug)\(/.test(contenido)) {
         infractores.push(relativa)
@@ -236,7 +249,7 @@ describe('la pasarela tiene un solo dueño', () => {
     const infractores: string[] = []
 
     for (const archivo of archivos) {
-      const relativa = archivo.replace(`${process.cwd()}\\`, '').replaceAll('\\', '/')
+      const relativa = rutaRelativa(archivo)
 
       if (relativa.startsWith('src/lib/mp/')) continue
 
@@ -259,7 +272,7 @@ describe('la pasarela tiene un solo dueño', () => {
     const infractores: string[] = []
 
     for (const archivo of archivos) {
-      const relativa = archivo.replace(`${process.cwd()}\\`, '').replaceAll('\\', '/')
+      const relativa = rutaRelativa(archivo)
 
       if (relativa.startsWith('src/lib/mp/') || relativa === 'src/lib/env.ts') continue
 
