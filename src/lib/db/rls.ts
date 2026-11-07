@@ -44,10 +44,9 @@ export async function setearVariablesSesion(
   userId: string | null,
   role: RolSesion,
 ): Promise<void> {
-  await tx.$queryRawUnsafe(
-    `SELECT set_config('app.user_id', $1, true), set_config('app.role', $2, true)`,
-    [userId ?? '', role],
-  )
+  await tx.$queryRaw`
+    SELECT set_config('app.user_id', ${userId ?? ''}, true), set_config('app.role', ${role}, true)
+  `
 }
 
 /**

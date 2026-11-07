@@ -47,6 +47,11 @@ export const rule: RuleModule = {
           nombre = `${objeto}.${propiedad}`
         }
 
+        // Añadir el signo $ para coincidencias como `$tx.queryRawUnsafe`
+        if (callee.type === 'MemberExpression') {
+          nombre = `$${nombre}`
+        }
+
         if (nombre === '$queryRawUnsafe' || nombre === '$executeRawUnsafe') {
           context.report({
             node,

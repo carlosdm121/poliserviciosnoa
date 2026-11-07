@@ -48,6 +48,12 @@ async function listarArchivosTs(dir: string): Promise<string[]> {
 
   for (const entry of entries) {
     const ruta = `${dir}/${entry.name}`
+
+    // Ignorar directorios de reglas ESLint (son definiciones, no código del app)
+    if (entry.isDirectory() && /eslint-rules/.test(entry.name)) {
+      continue
+    }
+
     if (entry.isDirectory()) {
       resultado.push(...(await listarArchivosTs(ruta)))
     } else if (entry.isFile() && (ruta.endsWith('.ts') || ruta.endsWith('.tsx'))) {
