@@ -62,10 +62,10 @@ jobs:
         run: npm run build
 
       - name: Escanear secretos en bundle del cliente (punto 1)
-        run: tsx scripts/check-client-bundle.ts
+        run: npx tsx scripts/check-client-bundle.ts
 
       - name: Verificar que no haya queries no seguras (punto 13)
-        run: tsx scripts/check-no-unsafe-queries.ts
+        run: npx tsx scripts/check-no-unsafe-queries.ts
 
       - name: Auditar dependencias (punto 20)
         run: npm audit --audit-level=high
