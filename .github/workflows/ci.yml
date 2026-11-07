@@ -45,6 +45,20 @@ jobs:
         run: npm test
 
       - name: Build de Next.js
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test_db"
+          NEXTAUTH_SECRET: "dummy_secret_key_genera_una_larga_de_prueba"
+          RESEND_API_KEY: "re_dummy_key"
+          MP_ACCESS_TOKEN: "TEST-dummy-token"
+          MP_WEBHOOK_SECRET: "dummy_webhook_secret"
+          CLOUDINARY_CLOUD_NAME: "dummy_cloud"
+          CLOUDINARY_API_KEY: "123456789"
+          CLOUDINARY_API_SECRET: "dummy_secret"
+          UPSTASH_REDIS_REST_URL: "https://dummy-redis.upstash.io"
+          UPSTASH_REDIS_REST_TOKEN: "dummy_token"
+          PHONE_HASH_PEPPER: "0123456789abcdef0123456789abcdef"
+          DATA_ENCRYPTION_KEY: "dummy_encryption_key_base64_32_bytes=="
+          CRON_SECRET: "dummy_cron_secret"
         run: npm run build
 
       - name: Escanear secretos en bundle del cliente (punto 1)
