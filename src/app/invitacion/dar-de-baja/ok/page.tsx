@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Baja de invitaciones',
@@ -23,9 +24,9 @@ export default function PaginaBajaInvitaciones(): React.ReactElement {
           profesional al que contactaste haya pasado más de 48 horas y no haya
           una invitación previa pendiente.
         </p>
-        <a href="/" className="btn-linea inline-flex items-center">
+        <Link href="/" className="btn-linea inline-flex items-center">
           Volver al inicio
-        </a>
+        </Link>
       </div>
     </div>
   )

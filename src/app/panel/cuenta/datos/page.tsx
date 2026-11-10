@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
 import { Aviso } from '@/components/admin/Aviso'
 import { authOptions } from '@/lib/auth'
@@ -61,12 +62,12 @@ export default async function PaginaDatos({
               WhatsApp, suscripciones, pagos, contactos y votos. No incluye
               datos de otras personas.
             </p>
-            <a
+            <Link
               href="/api/panel/datos/exportar"
               className="btn-oscuro px-4 py-3 text-base font-bold uppercase"
             >
               Descargar JSON
-            </a>
+            </Link>
           </section>
 
           <div className="mt-6">

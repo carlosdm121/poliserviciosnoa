@@ -3,6 +3,7 @@
 import { getSession, signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -98,15 +99,15 @@ export function FormularioLogin(): React.ReactElement {
 
       <div className="space-y-2 border-t-[3px] border-ink pt-6 text-sm">
         <p>
-          <a href="/recuperar-contrasena" className="font-bold underline">
+          <Link href="/recuperar-contrasena" className="font-bold underline">
             ¿Olvidaste tu contraseña?
-          </a>
+          </Link>
         </p>
         <p className="text-muted">
           Si no verificaste tu email,{' '}
-          <a href="/reenviar-verificacion" className="font-bold underline">
+          <Link href="/reenviar-verificacion" className="font-bold underline">
             pedinos que te lo reenviemos
-          </a>
+          </Link>
           .
         </p>
       </div>

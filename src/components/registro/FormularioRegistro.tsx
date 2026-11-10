@@ -2,6 +2,7 @@
 
 import { signIn } from 'next-auth/react'
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 
 import { registrarProfesional } from '@/app/actions/registro'
 import { Button } from '@/components/ui/Button'
@@ -167,13 +168,13 @@ export function FormularioRegistro(): React.ReactElement {
 
       <p className="text-sm text-muted">
         Al crear la cuenta aceptás nuestros{' '}
-        <a href="/terminos" className="font-bold underline">
+        <Link href="/terminos" className="font-bold underline">
           términos y condiciones
-        </a>{' '}
+        </Link>{' '}
         y la{' '}
-        <a href="/privacidad" className="font-bold underline">
+        <Link href="/privacidad" className="font-bold underline">
           política de privacidad
-        </a>
+        </Link>
         .
       </p>
     </form>
