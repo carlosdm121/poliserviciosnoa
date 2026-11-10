@@ -153,33 +153,19 @@ export function generarPasswordTemporal(longitud = 12): string {
   const numeros = '23456789'
   const simbolos = '!@#$%'
 
-  const todo = mayusculas + minusculas + numeros + simbolos
+  const todos = [...mayusculas, ...minusculas, ...numeros, ...simbolos]
 
-  // Elegir al menos uno de cada clase
-  const bytes = crypto.getRandomValues(new Uint8Array(longitud))
-  let password = ''
-
-  // Posiciones fijas para cada clase requerida (0-3), resto aleatorio
-  const posicionesRequeridas = [
-    bytes[0] % longitud,
-    bytes[1] % longitud,
-    bytes[2] % longitud,
-    bytes[3] % longitud,
-  ]
-
-  for (let i = 0; i < longitud; i++) {
-    if (i === posicionesRequeridas[0]) {
-      password += mayusculas[bytes[i] % mayusculas.length]
-    } else if (i === posicionesRequeridas[1]) {
-      password += minusculas[bytes[i] % minusculas.length]
-    } else if (i === posicionesRequeridas[2]) {
-      password += numeros[bytes[i] % numeros.length]
-    } else if (i === posicionesRequeridas[3]) {
-      password += simbolos[bytes[i] % simbolos.length]
-    } else {
-      password += todo[bytes[i] % todo.length]
-    }
+  // Asegurar al menos un carácter de cada clase
+  const passwordChars: string[] = []
+  for (const cls of [mayusculas, minusculas, numeros, simbolos]) {
+    const idx = Math.floor(Math.random() * cls.length)
+    passwordChars.push(cls[idx]!)
   }
 
-  return password
+  // Rellenar el resto hasta alcanzar la longitud solicitada
+  for (let i = passwordChars.length; i < longitud; i++) {
+    passwordChars.push(todos[Math.floor(Math.random() * todos.length)]!)
+  }
+
+  return passwordChars.join('')
 }
