@@ -57,7 +57,7 @@ jobs:
           UPSTASH_REDIS_REST_URL: "https://dummy-redis.upstash.io"
           UPSTASH_REDIS_REST_TOKEN: "dummy_token"
           PHONE_HASH_PEPPER: "0123456789abcdef0123456789abcdef"
-          DATA_ENCRYPTION_KEY: "dummy_encryption_key_base64_32_bytes=="
+          DATA_ENCRYPTION_KEY: "dQgKi5lQ8uj7i0WwKXP1UbnoTnIm62KqIJdybZXLsbQ="
           CRON_SECRET: "dummy_cron_secret"
         run: npm run build
 
@@ -96,5 +96,5 @@ jobs:
           UPSTASH_REDIS_REST_URL: "https://dummy-redis.upstash.io"
           UPSTASH_REDIS_REST_TOKEN: "dummy_token"
           PHONE_HASH_PEPPER: "0123456789abcdef0123456789abcdef"
-          DATA_ENCRYPTION_KEY: "dummy_encryption_key_base64_32_bytes=="
+          DATA_ENCRYPTION_KEY: "dQgKi5lQ8uj7i0WwKXP1UbnoTnIm62KqIJdybZXLsbQ="
           CRON_SECRET: "dummy_cron_secret"
