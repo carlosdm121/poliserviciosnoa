@@ -142,25 +142,44 @@ const SIMBOLOS_TEMPORALES = '!@#$%'
  * Genera la contraseña temporal que el admin le entrega al profesional al
  * crear su espacio. 12 caracteres superan la política mínima de 12.
  *
- * Incluye al menos un símbolo para cumplir la política de complejidad
- * (mayúscula, minúscula, número, símbolo).
+ * Garantiza al menos: 1 mayúscula, 1 minúscula, 1 número, 1 símbolo.
  */
 export function generarPasswordTemporal(longitud = 12): string {
+  if (longitud < 12) longitud = 12
+
+  // Alfabetos por clase
+  const mayusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const minusculas = 'abcdefghijkmnopqrstuvwxyz'
+  const numeros = '23456789'
+  const simbolos = '!@#$%'
+
+  const todo = mayusculas + minusculas + numeros + simbolos
+
+  // Elegir al menos uno de cada clase
   const bytes = crypto.getRandomValues(new Uint8Array(longitud))
   let password = ''
 
-  for (const byte of bytes) {
-    password += ALFABETO_TEMPORAL[byte % ALFABETO_TEMPORAL.length]
+  // Posiciones fijas para cada clase requerida (0-3), resto aleatorio
+  const posicionesRequeridas = [
+    bytes[0] % longitud,
+    bytes[1] % longitud,
+    bytes[2] % longitud,
+    bytes[3] % longitud,
+  ]
+
+  for (let i = 0; i < longitud; i++) {
+    if (i === posicionesRequeridas[0]) {
+      password += mayusculas[bytes[i] % mayusculas.length]
+    } else if (i === posicionesRequeridas[1]) {
+      password += minusculas[bytes[i] % minusculas.length]
+    } else if (i === posicionesRequeridas[2]) {
+      password += numeros[bytes[i] % numeros.length]
+    } else if (i === posicionesRequeridas[3]) {
+      password += simbolos[bytes[i] % simbolos.length]
+    } else {
+      password += todo[bytes[i] % todo.length]
+    }
   }
-
-  // Asegurar al menos un símbolo para cumplir la política de complejidad:
-  // mayúscula, minúscula, número y símbolo. Reemplazamos el carácter en
-  // la posición bytes[0] % longitud por un símbolo aleatorio.
-  // bytes[0] proviene de crypto.getRandomValues y no es undefined.
-  const posicion = bytes[0]! % longitud
-  const simbolo = SIMBOLOS_TEMPORALES[bytes[1]! % SIMBOLOS_TEMPORALES.length]
-
-  password = password.slice(0, posicion) + simbolo + password.slice(posicion + 1)
 
   return password
 }
