@@ -44,7 +44,7 @@ export default defineConfig({
       UPSTASH_REDIS_REST_TOKEN: 'token',
       CRON_SECRET: 'secreto-cron-de-prueba',
       PHONE_HASH_PEPPER: 'pepper-de-prueba-de-32-caracteres-minimo',
-      DATA_ENCRYPTION_KEY: 'MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=',
+      DATA_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
     },
   },
 })
