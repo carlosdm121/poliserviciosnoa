@@ -38,7 +38,7 @@ export async function guardarDatosPerfil(entrada: PerfilInput): Promise<Resultad
     return err('No encontramos tu perfil.', ERROR_CODES.NO_ENCONTRADO)
   }
 
-  return guardarPerfil(perfil.id, entrada, ipDelRequest())
+  return guardarPerfil(perfil.id, entrada, await ipDelRequest())
 }
 
 /**
@@ -48,8 +48,8 @@ export async function guardarDatosPerfil(entrada: PerfilInput): Promise<Resultad
  * que no sirve para ubicar a nadie, pero sí para detectar dos sesiones del
  * mismo perfil desde conexiones distintas.
  */
-function ipDelRequest(): string | undefined {
-  const headersList = headers()
+async function ipDelRequest(): Promise<string | undefined> {
+  const headersList = await headers()
 
   return (
     headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ??

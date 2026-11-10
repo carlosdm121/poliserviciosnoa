@@ -1,8 +1,9 @@
-import { UserRole } from '@prisma/client'
 import { getToken } from 'next-auth/jwt'
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { headersSeguridad, generarNonce } from '@/lib/security-headers'
+import { rateLimit } from '@/lib/ratelimit'
+import { ipHasheada } from '@/lib/peticion'
 
 /**
  * Middleware de autorización por rol y headers de seguridad.
@@ -16,6 +17,15 @@ import { headersSeguridad, generarNonce } from '@/lib/security-headers'
 
 const NONCE_HEADER = 'x-csp-nonce'
 
+/** Extrae la IP real del request, considerando X-Forwarded-For y X-Real-IP. */
+async function ipDelRequest(request: NextRequest): Promise<string | undefined> {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    request.headers.get('x-real-ip') ??
+    undefined
+  )
+}
+
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
@@ -28,6 +38,25 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // Nonce criptográfico por request para la CSP.
   respuesta.headers.set(NONCE_HEADER, nonce)
 
+  // Rate limiting para endpoints de autenticación.
+  if (
+    pathname === '/login' ||
+    pathname === '/registro' ||
+    pathname.startsWith('/api/auth')
+  ) {
+    const ip = await ipDelRequest(request)
+    const ipHash = ip ? await ipHasheada(ip) : 'desconocida'
+
+    const limiteResultado = await rateLimit(`auth:ip:${ipHash}`, 5, 300) // 5 intentos por 5 minutos
+
+    if (limiteResultado.limitado) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Demasiados intentos. Probá más tarde.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+  }
+
   // Aplicar headers de seguridad.
   const headers = headersSeguridad(request, nonce)
   for (const [clave, valor] of Object.entries(headers)) {
@@ -35,10 +64,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   // Determina el prefijo protegido que aplica a esta ruta.
-  const ROLES_POR_RUTA: Record<string, readonly UserRole[]> = {
-    panel: [UserRole.PROFESSIONAL],
-    admin: [UserRole.ADMIN, UserRole.MODERADOR],
-    'mis-contactos': [UserRole.CLIENT],
+  const ROLES_POR_RUTA: Record<string, readonly string[]> = {
+    panel: ['PROFESSIONAL', 'CLIENT'],
+    admin: ['ADMIN'],
+    'mis-contactos': ['CLIENT'],
   }
 
   const prefijo = (Object.keys(ROLES_POR_RUTA) as (keyof typeof ROLES_POR_RUTA)[]).find(
@@ -62,7 +91,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(urlLogin)
   }
 
-  const rolActual = token.role as UserRole | undefined
+  const rolActual = token.role as string | undefined
 
   // Con sesión pero del rol equivocado.
   if (!rolActual || !rolesPermitidos.includes(rolActual)) {

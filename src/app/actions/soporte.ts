@@ -60,7 +60,7 @@ export async function soporteCrearTicket(datos: FormData): Promise<void> {
   const ruta = texto(datos, 'ruta')
 
   // Límite por IP para evitar que un visitante inunde el formulario de soporte.
-  const ipHash = ipHasheada()
+  const ipHash = await ipHasheada()
   const limiteTicket = await rateLimit(`soporte:ip:${ipHash}`, 10, 3600)
 
   if (limiteTicket.limitado) {

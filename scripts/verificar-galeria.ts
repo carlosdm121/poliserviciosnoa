@@ -5,8 +5,9 @@
  * tests: los casos necesitan una base de verdad (bloqueo de fila, transacciones
  * concurrentes) y el proyecto ya tiene el Postgres embebido montado para eso.
  *
- * El caso central es el del prompt: **12 subidas simultáneas tienen que dejar
- * exactamente 10**. Es la prueba que justifica el `FOR UPDATE`. Si alguien saca
+ * El caso central es el del prompt: **LIMITE_IMAGENES + 2 subidas simultáneas
+ * tienen que dejar exactamente LIMITE_IMAGENES**. Es la prueba que justifica
+ * el `FOR UPDATE`. Si alguien saca
  * el bloqueo y deja el `count` solo, este script falla, y esa es exactamente la
  * razón de que esté en `npm run verificar` y no en una suite opcional.
  *
@@ -168,20 +169,21 @@ async function main(): Promise<void> {
   comprobar('la primera foto arranca en sortOrder 0', imagenes[0]?.sortOrder === 0)
 
   // -------------------------------------------------------------------------
-  titulo('12 subidas simultáneas dejan exactamente 10')
+  titulo(`${LIMITE_IMAGENES + 2} subidas simultáneas dejan exactamente ${LIMITE_IMAGENES}`)
 
   const perfilConcurrente = await crearPerfil('concurrente')
+  const total = LIMITE_IMAGENES + 2
 
   /**
-   * Se lanzan las 12 de golpe con `Promise.all` y no una por una.
+   * Se lanzan todas de golpe con `Promise.all` y no una por una.
    *
    * Es lo que hace que la prueba signifique algo: si se fueran una a una, cada
-   * una vería el estado que dejó la anterior y las 12 pasarían el límite sin
+   * una vería el estado que dejó la anterior y todas pasarían el límite sin
    * ejercitar el bloqueo. El `FOR UPDATE` solo se nota cuando dos transacciones
    * leen el mismo snapshot, y eso solo pasa si hay concurrencia real.
    */
   const resultados = await Promise.all(
-    Array.from({ length: 12 }, (_, indice) => subir(perfilConcurrente, indice)),
+    Array.from({ length: total }, (_, indice) => subir(perfilConcurrente, indice)),
   )
 
   const exitos = resultados.filter((r) => r.ok).length
@@ -189,7 +191,7 @@ async function main(): Promise<void> {
   const enBase = await prisma.image.count({ where: { profileId: perfilConcurrente } })
 
   comprobar(
-    `12 subidas simultáneas dejan ${LIMITE_IMAGENES} (no ${enBase})`,
+    `${total} subidas simultáneas dejan ${LIMITE_IMAGENES} (quedaron ${enBase})`,
     enBase === LIMITE_IMAGENES,
     `quedaron ${enBase}`,
   )

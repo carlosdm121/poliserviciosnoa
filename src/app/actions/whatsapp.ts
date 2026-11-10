@@ -68,7 +68,7 @@ export async function pedirCodigoWhatsApp(
   const { NOMBRE_PAGINA } = await import('@/lib/constantes')
   const { numeroPlataforma } = await import('@/lib/whatsapp')
 
-  const ip = ipDelRequest()
+  const ip = await ipDelRequest()
 
   const resultado = await solicitarCodigo(perfil.id, numero.data, ip)
 
@@ -94,8 +94,8 @@ export async function pedirCodigoWhatsApp(
  * no hay nada confiable en `x-forwarded-for` para distinguir al usuario real de
  * un proxy. Como clave de rate limiting alcanza con algo estable por conexión.
  */
-function ipDelRequest(): string | undefined {
-  const headersList = headers()
+async function ipDelRequest(): Promise<string | undefined> {
+  const headersList = await headers()
 
   return (
     headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ??

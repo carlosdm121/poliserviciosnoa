@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation'
 import { ArrowRight, Mail, Menu, Phone, Search, X } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
-import { NOMBRE_PAGINA } from '@/lib/constantes'
+import { enlaceWhatsApp, NOMBRE_PAGINA } from '@/lib/constantes'
 
 /**
  * Cabecera de la marca.
@@ -71,7 +71,7 @@ export function Header(): JSX.Element {
               )}
             >
               <a
-                href="tel:+5493813845345"
+                href={enlaceWhatsApp('5493813845345')}
                 className="flex items-center gap-1.5 font-bold text-white hover:underline underline-offset-2 decoration-noa-blue/40"
               >
                 <Phone className="h-3.5 w-3.5" aria-hidden="true" />
@@ -283,7 +283,7 @@ export function Header(): JSX.Element {
 
             <div className="border-t border-ink/10 pt-4 space-y-2">
               <a
-                href="tel:+5493813845345"
+                href={enlaceWhatsApp('5493813845345')}
                 className="flex items-center gap-2 font-bold text-ink hover:underline underline-offset-2 decoration-noa-blue/40"
               >
                 <Phone className="h-4 w-4" aria-hidden="true" /> +5493813845345

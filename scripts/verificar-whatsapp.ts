@@ -557,8 +557,12 @@ async function main(): Promise<void> {
   // -------------------------------------------------------------------------
   titulo('Revisión manual configurable')
 
+  // El seed la deja prendida para el lanzamiento; esta prueba necesita medir
+  // los dos estados, así que la apaga primero.
+  await setExigeAprobacionManual(false, 'verificacion')
+
   const flagOff = await exigeAprobacionManual()
-  comprobar('la bandera arranca apagada', flagOff === false)
+  comprobar('la bandera queda apagada', flagOff === false)
 
   // Con la bandera apagada, un perfil PENDING_REVIEW se publica igual.
   const profeOcho = await crearProfesional(`aprob-${prefijo}@test.com`, '5493814900011')

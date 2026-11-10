@@ -20,16 +20,15 @@ import { env } from '@/lib/env'
  * En Vercel la IP real viene en `x-forwarded-for`. En desarrollo local no
  * existe y cae al valor por defecto.
  */
-export function ipHasheada(): string {
-  const lista = headers().get('x-forwarded-for')
-  const ip = lista?.split(',')[0]?.trim() ?? 'desconocida'
+export async function ipHasheada(ip?: string): Promise<string> {
+  const ipReal = ip ?? (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'desconocida'
 
   // Hash simple y determinista. No necesita ser criptográficamente fuerte:
   // tiene que ser irreversible para no poder reconstruir la IP, y estable
   // para que el rate limit funcione entre requests.
   let hash = 0
-  for (let i = 0; i < ip.length; i++) {
-    hash = (hash << 5) - hash + ip.charCodeAt(i)
+  for (let i = 0; i < ipReal.length; i++) {
+    hash = (hash << 5) - hash + ipReal.charCodeAt(i)
     hash |= 0
   }
 

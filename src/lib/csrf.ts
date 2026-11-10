@@ -1,63 +1,72 @@
 /**
- * Protección CSRF para acciones y route handlers que modifican datos
- * (punto 9 del módulo 6.1).
+ * Protección CSRF basada en token (punto 7 del módulo 6.1).
  *
- * Se verifica el encabezado `Origin` o `Host` de la request contra el origen
- * esperado (NEXTAUTH_URL). Si no coincide, se rechaza con 403. Esto evita que
- * un sitio de terceros fuerce una mutación desde el navegador del usuario.
+ * Cada acción de servidor que muta datos recibe un token que se valida contra
+ * el valor almacenado en una cookie del cliente. El token viaja de la cookie
+ * al servidor (never en la URL), así que un sitio de terceros no puede leerlo
+ * ni inyectarlo en una petición falsificada.
  *
- * Se usa en route handlers y Server Actions que escriben datos. Las peticiones
- * GET y las que no modifican estado no requieren esta verificación.
+ * Las acciones de servidor críticas deben llamar a `validarTokenCsrf` al
+ * inicio, junto con `requireRole`.
+ *
+ * Uso en una Server Action:
+ *
+ *   import { validarTokenCsrf } from '@/lib/csrf'
+ *   export async function miAccion(csrfToken?: string) {
+ *     if (!validarTokenCsrf(csrfToken)) throw new Error('Token CSRF inválido')
+ *     ...
+ *   }
+ *
+ * El token se genera al iniciar sesión y se pone en la cookie `csrf_token`
+ * (httpOnly, secure, sameSite lax). No se expone al cliente por JS, pero
+ * NextAuth / Next.js reenvía la cookie automáticamente en cada petición del
+ * mismo origen, así que las Server Actions que se invocan desde formularios
+ * del cliente pueden leerla con `cookies()` y pasarla como argumento.
  */
 
-import { env } from '@/lib/env'
+import { cookies } from 'next/headers'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 
-/**
- * Extrae el origen esperado de NEXTAUTH_URL.
- */
-function origenEsperado(): string {
-  return env.NEXTAUTH_URL
+const CSRF_TOKEN_NAME = 'csrf_token'
+
+/** Genera un token CSRF criptográficamente seguro. */
+export function generarTokenCsrf(): string {
+  return randomBytes(32).toString('base64url')
 }
 
 /**
- * Valida que la request venga del origen esperado (Origin o Host).
+ * Valida el token recibido contra el guardado en la cookie `csrf_token`.
  *
- * Lanza un error si la petición no pasa la verificación CSRF.
- *
- * @param origin Valor del encabezado `Origin` (puede ser undefined).
- * @param host Valor del encabezado `Host` (fallback si no hay Origin).
- * @param metodo Método HTTP. Se salta la verificación para métodos seguros (GET, HEAD, OPTIONS).
+ * @param tokenRecibido Valor enviado desde el cliente (puede ser undefined).
+ * @returns `true` si ambos tokens existen y coinciden en tiempo constante.
  */
-export function verificarCsrf(
-  origin: string | null | undefined,
-  host: string | null | undefined,
-  metodo: string,
-): void {
-  const metodosSeguros = new Set(['GET', 'HEAD', 'OPTIONS'])
+export async function validarTokenCsrf(tokenRecibido: string | null): Promise<boolean> {
+  const cookieStore = await cookies()
+  const tokenGuardado = cookieStore.get(CSRF_TOKEN_NAME)?.value
 
-  // Las peticiones que no modifican estado no necesitan protección CSRF.
-  if (metodosSeguros.has(metodo.toUpperCase())) {
-    return
+  if (!tokenRecibido || !tokenGuardado) return false
+
+  try {
+    return timingSafeEqual(
+      Buffer.from(tokenRecibido, 'base64url'),
+      Buffer.from(tokenGuardado, 'base64url'),
+    )
+  } catch {
+    return false
   }
+}
 
-  const esperado = origenEsperado()
-
-  // Intentar coincidir con Origin primero (es más confiable).
-  if (origin) {
-    const origenNormalizado = origin.endsWith('/') ? origin.slice(0, -1) : origin
-    const esperadoNormalizado = esperado.endsWith('/') ? esperado.slice(0, -1) : esperado
-    if (origenNormalizado === esperadoNormalizado) {
-      return
-    }
-  }
-
-  // Fallback: comparar Host contra el host de NEXTAUTH_URL.
-  if (host) {
-    const hostUrl = new URL(esperado)
-    if (host === hostUrl.host) {
-      return
-    }
-  }
-
-  throw new Error('Verificación CSRF fallida: origen no permitido.')
+/**
+ * Establece la cookie `csrf_token` con el valor indicado.
+ *
+ * @param token Token generado con `generarTokenCsrf`.
+ */
+export async function establecerCookieCsrf(token: string): Promise<void> {
+  const cookieStore = await cookies()
+  cookieStore.set(CSRF_TOKEN_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  })
 }

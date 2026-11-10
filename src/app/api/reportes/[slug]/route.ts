@@ -20,7 +20,7 @@ export async function POST(
 ): Promise<Response> {
   const { slug } = await params
 
-  const ipHash = ipHasheada()
+  const ipHash = await ipHasheada()
 
   let cuerpo
   try {

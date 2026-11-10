@@ -13,9 +13,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } },
+  { params }: { params: Promise<{ slug: string }> },
 ): Promise<NextResponse> {
-  const limite = await rateLimit(`contacto:ip:${ipHasheada()}`, 30, 60)
+  const { slug } = await params
+  const limite = await rateLimit(`contacto:ip:${await ipHasheada()}`, 30, 60)
 
   if (limite.limitado) {
     return NextResponse.json(
@@ -32,7 +33,7 @@ export async function GET(
   const userAgent = request.headers.get('user-agent')
 
   const resultado = await registrarContacto({
-    slug: params.slug,
+    slug,
     clientId,
     contar: !esBot(userAgent),
   })

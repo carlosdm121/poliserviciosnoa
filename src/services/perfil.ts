@@ -1,6 +1,8 @@
 import { Prisma, type Profile } from '@prisma/client'
 
 import { hashValor } from '@/lib/hash'
+import { encryptField } from '@/lib/db/encrypt'
+import { decryptField } from '@/lib/db/encrypt'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
 import { normalizarWhatsapp } from '@/lib/phone'
@@ -338,13 +340,20 @@ async function validarRelaciones(
     select: { whatsappE164: true },
   })
 
-  if (perfil && perfil.whatsappE164 && normalizarWhatsapp(perfil.whatsappE164) !== perfil.whatsappE164) {
-    // Ya está normalizado por el registro; si algún camino lo dejó sin
-    // normalizar, se corrige acá en vez de confiar.
-    await tx.profile.update({
-      where: { id: profileId },
-      data: { whatsappE164: perfil.whatsappE164 },
-    })
+  if (perfil && perfil.whatsappE164) {
+    const whatsappActual = decryptField(perfil.whatsappE164)
+    const normalizado = whatsappActual
+      ? normalizarWhatsapp(whatsappActual)
+      : undefined
+
+    if (normalizado && normalizado !== whatsappActual) {
+      // Ya está normalizado por el registro; si algún camino lo dejó sin
+      // normalizar, se corrige acá en vez de confiar.
+      await tx.profile.update({
+        where: { id: profileId },
+        data: { whatsappE164: encryptField(normalizado) },
+      })
+    }
   }
 
   return ok(null)

@@ -34,6 +34,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.tmp-dev.log
+devcheck*.log
+install-lock.log
+
+# Temp dev files
+.tmp-dev.pid
+.tmp-build-*.ts
 
 # Vercel
 .vercel

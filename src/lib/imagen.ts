@@ -21,8 +21,8 @@
  * un CHECK de Postgres. Un CHECK sin `FOR UPDATE` no es un límite: dos subidas
  * simultáneas leen 9, las dos pasan y quedan 11.
  *
- * Este 10 es el mismo número que usa `evaluarPublicacion` para exigir al menos
- * una foto. Si alguno de los dos cambia, hay que cambiar el otro.
+ * Este 20 es el límite vigente. `evaluarPublicacion` solo exige al menos una
+ * foto; si el límite cambia, la verificación de galería lo sigue por constante.
  */
 export const LIMITE_IMAGENES = 20
 

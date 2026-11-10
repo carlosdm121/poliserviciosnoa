@@ -38,7 +38,7 @@ export async function exigirAdmin(): Promise<Resultado<ActorAdmin>> {
     select: { id: true, email: true, role: true },
   })
 
-  if (!usuario || (usuario.role !== 'ADMIN' && usuario.role !== 'MODERADOR')) {
+  if (!usuario || usuario.role !== 'ADMIN') {
     logger.warn('admin: acción rechazada por rol', { email: usuario?.email })
     return err('No tenés permisos para hacer esto.', ERROR_CODES.SIN_PERMISOS)
   }

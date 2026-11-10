@@ -1,6 +1,3 @@
-
-import withPWA from 'next-pwa'
-
 /**
  * Headers estáticos de next.config.
  *
@@ -80,7 +77,9 @@ const nextConfig = {
   // Desactiva el header X-Powered-By de Next.js para no revelar el framework.
   poweredByHeader: false,
 
-  optimizePackageImports: ['lucide-react'],
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
 }
 
 export default nextConfig

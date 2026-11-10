@@ -91,20 +91,42 @@ export async function verificarPassword(
 
 /**
  * Verifica que una contraseña candidata no sea una de las comunes y tenga
- * al menos 10 caracteres.
+ * al menos 12 caracteres con complejidad (mayúscula, minúscula, número,
+ * símbolo).
  *
  * Lanza un error con el motivo si no cumple la política.
  */
 export function validarPoliticaPassword(password: string): void {
-  if (password.length < 10) {
+  // Mínimo 12 caracteres
+  if (password.length < 12) {
     throw new Error(
-      'La contraseña necesita al menos 10 caracteres.',
+      'La contraseña necesita al menos 12 caracteres.',
     )
   }
 
+  // Complejidad: mayúscula, minúscula, número, símbolo
+  const hasUppercase = /[A-Z]/.test(password)
+  const hasLowercase = /[a-z]/.test(password)
+  const hasNumbers = /\d/.test(password)
+  const hasSymbols = /[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?~`]/.test(password)
+
+  if (!(hasUppercase && hasLowercase && hasNumbers && hasSymbols)) {
+    throw new Error(
+      'La contraseña debe incluir mayúsculas, minúsculas, números y símbolos.',
+    )
+  }
+
+  // Contraseñas comunes
   if (CONTRASEÑAS_COMUNES.has(password.toLowerCase())) {
     throw new Error(
-      'Esa contraseña es demasiado común. Elegí otra que no sea tan obvia.',
+      'Esa contraseña es demasiado común. Elegí otra.',
+    )
+  }
+
+  // No secuencias obvias
+  if (/(\d{4,})/.test(password)) {
+    throw new Error(
+      'La contraseña no puede contener secuencias de números obvias.',
     )
   }
 }
@@ -114,10 +136,14 @@ export function validarPoliticaPassword(password: string): void {
  * a mano, y un carácter confundido es un login que falla.
  */
 const ALFABETO_TEMPORAL = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+const SIMBOLOS_TEMPORALES = '!@#$%'
 
 /**
  * Genera la contraseña temporal que el admin le entrega al profesional al
- * crear su espacio. 12 caracteres superan la política mínima de 10.
+ * crear su espacio. 12 caracteres superan la política mínima de 12.
+ *
+ * Incluye al menos un símbolo para cumplir la política de complejidad
+ * (mayúscula, minúscula, número, símbolo).
  */
 export function generarPasswordTemporal(longitud = 12): string {
   const bytes = crypto.getRandomValues(new Uint8Array(longitud))
@@ -126,6 +152,15 @@ export function generarPasswordTemporal(longitud = 12): string {
   for (const byte of bytes) {
     password += ALFABETO_TEMPORAL[byte % ALFABETO_TEMPORAL.length]
   }
+
+  // Asegurar al menos un símbolo para cumplir la política de complejidad:
+  // mayúscula, minúscula, número y símbolo. Reemplazamos el carácter en
+  // la posición bytes[0] % longitud por un símbolo aleatorio.
+  // bytes[0] proviene de crypto.getRandomValues y no es undefined.
+  const posicion = bytes[0]! % longitud
+  const simbolo = SIMBOLOS_TEMPORALES[bytes[1]! % SIMBOLOS_TEMPORALES.length]
+
+  password = password.slice(0, posicion) + simbolo + password.slice(posicion + 1)
 
   return password
 }

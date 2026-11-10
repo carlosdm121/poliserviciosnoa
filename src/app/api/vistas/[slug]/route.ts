@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(
   request: Request,
-  { params }: { params: { slug: string } },
+  { params }: { params: Promise<{ slug: string }> },
 ): Promise<NextResponse> {
   // Un bot no tiene que llegar ni al rate limit: no suma y no hay nada que
   // responderle.
@@ -30,8 +30,10 @@ export async function POST(
     return new NextResponse(null, { status: 204 })
   }
 
+  const { slug } = await params
+
   const limite = await rateLimit(
-    `vista:ip:${ipHasheada()}:${params.slug}`,
+    `vista:ip:${await ipHasheada()}:${slug}`,
     1,
     VENTANA_VISTA_SEGUNDOS,
   )
@@ -45,7 +47,7 @@ export async function POST(
   const session = await getServerSession(authOptions)
 
   const resultado = await registrarVista({
-    slug: params.slug,
+    slug,
     viewerUserId: session?.user.id ?? null,
   })
 

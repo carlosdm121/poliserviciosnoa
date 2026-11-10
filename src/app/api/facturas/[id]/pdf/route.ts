@@ -21,15 +21,16 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const { id } = await params
   const sesion = await getServerSession(authOptions)
 
   if (!sesion?.user?.id) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
 
-  const duenio = await perfilDeFactura(params.id)
+  const duenio = await perfilDeFactura(id)
 
   if (!duenio) {
     return NextResponse.json({ error: 'No encontramos el comprobante.' }, { status: 404 })
@@ -46,7 +47,7 @@ export async function GET(
     }
   }
 
-  const archivo = await generarPdfDeFactura(params.id)
+  const archivo = await generarPdfDeFactura(id)
 
   if (!archivo) {
     return NextResponse.json(

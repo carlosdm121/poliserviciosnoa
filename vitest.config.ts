@@ -15,11 +15,11 @@ export default defineConfig({
   resolve: {
     alias: { '@': resolve(__dirname, './src') },
   },
-  // Next usa el runtime automático de JSX. Sin esto, Vitest toma el
+  // Next usa el runtime automático de JSX. Sin esto, Vite toma el
   // `jsx: preserve` del tsconfig y los componentes fallan con
   // "React is not defined" al renderizarlos con react-dom/server.
-  esbuild: {
-    jsx: 'automatic',
+  oxc: {
+    jsx: { runtime: 'automatic' },
   },
   test: {
     include: ['tests/**/*.test.ts'],

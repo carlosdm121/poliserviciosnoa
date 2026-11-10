@@ -69,11 +69,12 @@ function correrMes(anio: number, mes: number, delta: number): { anio: number; me
 export default async function PaginaFacturacion({
   searchParams,
 }: {
-  searchParams: { anio?: string; mes?: string }
+  searchParams: Promise<{ anio?: string; mes?: string }>
 }): Promise<React.ReactElement> {
+  const { anio: anioParam, mes: mesParam } = await searchParams
   const ahora = new Date()
-  const anio = Number(searchParams.anio) || ahora.getFullYear()
-  const mes = Number(searchParams.mes) || ahora.getMonth() + 1
+  const anio = Number(anioParam) || ahora.getFullYear()
+  const mes = Number(mesParam) || ahora.getMonth() + 1
 
   const { facturas, resumen } = await listarFacturasDelMes(anio, mes)
 

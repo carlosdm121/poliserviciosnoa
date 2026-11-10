@@ -6,6 +6,7 @@ import { headers } from 'next/headers'
 import { ipHasheada } from '@/lib/peticion'
 import { prisma } from '@/lib/prisma'
 import { rateLimit } from '@/lib/ratelimit'
+import { encryptField } from '@/lib/db/encrypt'
 import { generarSlugPerfil } from '@/lib/constantes'
 import { hashValor } from '@/lib/hash'
 import { logger } from '@/lib/logger'
@@ -38,8 +39,8 @@ export async function registrarProfesional(
 ): Promise<Resultado<{ email: string }>> {
   // La IP se lee acá y no viene del formulario: si la mandara el cliente,
   // cualquiera la falsea y la señal de altas múltiples no sirve para nada.
-  const ip = ipDelRequest()
-  const ipHash = ip ? ipHasheada() : 'desconocida'
+  const ip = await ipDelRequest()
+  const ipHash = ip ? await ipHasheada() : 'desconocida'
 
   const limiteAlta = await rateLimit(`alta:ip:${ipHash}`, ALTAS_POR_IP_Y_HORA, 3600)
 
@@ -95,7 +96,7 @@ export async function registrarProfesional(
     passwordHash: await hashearPassword(password),
     name,
     role: 'PROFESSIONAL',
-    emailVerified: new Date(),
+    emailVerified: null,
     // La IP se guarda hasheada y solo para la señal de altas múltiples. No
     // sirve para nada más, y por eso no se guarda en claro.
     signupIpHash: ip ? hashValor(ip) : null,
@@ -103,7 +104,8 @@ export async function registrarProfesional(
       create: {
         name,
         slug,
-        whatsappE164: whatsapp,
+        whatsappE164: encryptField(whatsapp),
+        whatsappHash: hashValor(whatsapp),
         type: 'PERSON',
         // El alta nace sin aprobar. Con la bandera `requireManualApproval`
         // apagada eso no frena la publicación; con la bandera prendida, frena.
@@ -155,7 +157,20 @@ export async function registrarProfesional(
     const { enviarEmailVerificacion } = await import('@/lib/email')
     await enviarEmailVerificacion({ email, nombre: name })
   } catch (error: unknown) {
+    // Rollback: eliminar usuario creado
+    try {
+      await prisma.user.delete({ where: { email } })
+    } catch (rollbackError) {
+      logger.error('registroProfesional: rollback fallido', {
+        originalError: error,
+        rollbackError,
+      })
+    }
     logger.error('registroProfesional: no se pudo enviar el email de verificación', { error })
+    return err(
+      'No pudimos crear tu cuenta. Probá de nuevo en un rato.',
+      ERROR_CODES.ERROR_EXTERNO,
+    )
   }
 
   // Señales de riesgo. Van después del alta, no antes: son contexto para que
@@ -174,8 +189,8 @@ export async function registrarProfesional(
  * hay proxies— pero sirve para detectar veinte cuentas desde la misma conexión,
  * que es el patrón que se busca.
  */
-function ipDelRequest(): string | undefined {
-  const headersList = headers()
+async function ipDelRequest(): Promise<string | undefined> {
+  const headersList = await headers()
 
   return (
     headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ??

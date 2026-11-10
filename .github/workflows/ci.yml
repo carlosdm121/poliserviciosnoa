@@ -77,10 +77,24 @@ jobs:
 
       - name: Escanear dependencias con OSV-Scanner (punto 20)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/google/osv-scanner/master/scripts/install.sh | sh -s -- -b ./bin
-          ./bin/osv-scanner scan --lockfile package-lock.json --exit-code --skip-git
+          mkdir -p ./bin
+          curl -sSfL -o ./bin/osv-scanner https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64
+          chmod +x ./bin/osv-scanner
+          ./bin/osv-scanner scan -L package-lock.json
 
       - name: Ejecutar verificar (seed idempotente + flujos)
         run: npm run verificar
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/poliservicios_test
+          NEXTAUTH_SECRET: "dummy_secret_key_genera_una_larga_de_prueba"
+          RESEND_API_KEY: "re_dummy_key"
+          MP_ACCESS_TOKEN: "TEST-dummy-token"
+          MP_WEBHOOK_SECRET: "dummy_webhook_secret"
+          CLOUDINARY_CLOUD_NAME: "dummy_cloud"
+          CLOUDINARY_API_KEY: "123456789"
+          CLOUDINARY_API_SECRET: "dummy_secret"
+          UPSTASH_REDIS_REST_URL: "https://dummy-redis.upstash.io"
+          UPSTASH_REDIS_REST_TOKEN: "dummy_token"
+          PHONE_HASH_PEPPER: "0123456789abcdef0123456789abcdef"
+          DATA_ENCRYPTION_KEY: "dummy_encryption_key_base64_32_bytes=="
+          CRON_SECRET: "dummy_cron_secret"

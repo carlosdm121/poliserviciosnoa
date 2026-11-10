@@ -1,7 +1,10 @@
 import { Prisma, type WhatsAppVerification } from '@prisma/client'
 
 import { env } from '@/lib/env'
+import { encryptField } from '@/lib/db/encrypt'
+import { decryptField } from '@/lib/db/encrypt'
 import { extraerCodigo, generarCodigo, hashCodigo, hashTelefono } from '@/lib/hash'
+import { hashValor } from '@/lib/hash'
 import { logger } from '@/lib/logger'
 import { enmascararTelefono, mismoTelefono, normalizarWhatsapp } from '@/lib/phone'
 import { limpiarLimite, rateLimit } from '@/lib/ratelimit'
@@ -127,12 +130,9 @@ export async function solicitarCodigo(
     }
   }
 
-  // Si el número ya es de otro perfil, se dice antes de crear nada. La base
-  // tiene índice único sobre whatsappE164 y la actualización del perfil tira
-  // P2002 en ese caso: sin este chequeo previo, el profesional ve un error
-  // genérico de "no pudimos" en vez de entender que ese número ya está en uso.
+  // Si el número ya es de otro perfil, se dice antes de crear nada.
   const duenio = await prisma.profile.findFirst({
-    where: { whatsappE164: e164, NOT: { id: profileId } },
+    where: { whatsappHash: hashValor(e164), NOT: { id: profileId } },
     select: { id: true },
   })
 
@@ -208,13 +208,14 @@ async function aplicarCambioDeNumero(
   })
 
   if (!perfil) return ok(null)
-  if (perfil.whatsappE164 === e164) return ok(null)
+  const whatsappActual = decryptField(perfil.whatsappE164)
+  if (whatsappActual === e164) return ok(null)
 
   try {
     await prisma.profile.update({
       where: { id: profileId },
       data: {
-        whatsappE164: e164,
+        whatsappE164: encryptField(e164),
         whatsappHash: null,
         whatsappVerifiedAt: null,
       },
@@ -237,7 +238,7 @@ async function aplicarCambioDeNumero(
 
   logger.info('whatsapp: número cambiado, verificación revocada', {
     profileId,
-    anterior: enmascararTelefono(perfil.whatsappE164 ?? ''),
+    anterior: enmascararTelefono(whatsappActual ?? ''),
     nuevo: enmascararTelefono(e164),
   })
 
@@ -514,7 +515,7 @@ async function confirmar(
       await tx.profile.update({
         where: { id: verificacion.profileId },
         data: {
-          whatsappE164: verificacion.phoneE164,
+          whatsappE164: encryptField(verificacion.phoneE164),
           whatsappHash: hash,
           whatsappVerifiedAt: new Date(),
         },
@@ -593,11 +594,12 @@ export async function verificarManualmente(
   }
 
   try {
+    const whatsappActual = decryptField(perfil.whatsappE164 ?? null)
     await prisma.$transaction(async (tx) => {
       await tx.profile.update({
         where: { id: profileId },
         data: {
-          whatsappHash: hashTelefono(perfil.whatsappE164 ?? ''),
+          whatsappHash: hashTelefono(whatsappActual ?? ''),
           whatsappVerifiedAt: new Date(),
         },
       })
@@ -609,7 +611,7 @@ export async function verificarManualmente(
           action: 'whatsapp.verificacion_manual',
           entityType: 'Profile',
           entityId: profileId,
-          after: { telefono: enmascararTelefono(perfil.whatsappE164 ?? ''), motivo: motivo.trim() },
+          after: { telefono: enmascararTelefono(whatsappActual ?? ''), motivo: motivo.trim() },
         },
       })
     })

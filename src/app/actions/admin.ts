@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { exigirAdmin, exigirSuperAdmin } from '@/lib/admin-auth'
+import { validarTokenCsrf } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
 import { ipHasheada } from '@/lib/peticion'
 import { prisma } from '@/lib/prisma'
@@ -276,7 +277,7 @@ export async function adminOcultarImagen(datos: FormData): Promise<void> {
       entidadId: imageId,
       antes: { oculta: !ocultar },
       despues: { oculta: ocultar, motivo: motivo || null },
-      ipHash: ipHasheada(),
+      ipHash: await ipHasheada(),
     })
   }
 
@@ -320,7 +321,7 @@ export async function adminResolverRiesgo(
     entidad: 'RiskSignal',
     entidadId: signalId,
     despues: { resolucion: limpia },
-    ipHash: ipHasheada(),
+    ipHash: await ipHasheada(),
   })
 
   return ok(null)
@@ -452,6 +453,11 @@ export async function adminSetExigeAprobacion(activo: boolean): Promise<Resultad
 // ---------------------------------------------------------------------------
 
 export async function adminGuardarConfiguracion(datos: FormData): Promise<void> {
+  const csrfToken = datos.get('csrfToken')
+  if (!await validarTokenCsrf(csrfToken as string | null)) {
+    return volver(datos, false, 'Token CSRF inválido')
+  }
+  
   const admin = await exigirSuperAdmin()
   if (!admin.ok) return volver(datos, false, admin.error)
 
