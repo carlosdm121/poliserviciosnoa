@@ -38,11 +38,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // Nonce criptográfico por request para la CSP.
   respuesta.headers.set(NONCE_HEADER, nonce)
 
-  // Rate limiting para endpoints de autenticación.
+  // Rate limiting del envío de credenciales.
+  //
+  // Solo cuenta el POST que valida la contraseña. Contar los GET de /login
+  // dejaba a cualquier visitante con un 429 crudo después de cinco visitas a
+  // la página, y no protegía nada porque el endpoint real quedaba fuera del
+  // matcher.
   if (
-    pathname === '/login' ||
-    pathname === '/registro' ||
-    pathname.startsWith('/api/auth')
+    pathname === '/api/auth/callback/credentials' &&
+    request.method === 'POST'
   ) {
     const ip = await ipDelRequest(request)
     const ipHash = ip ? await ipHasheada(ip) : 'desconocida'
@@ -50,8 +54,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const limiteResultado = await rateLimit(`auth:ip:${ipHash}`, 5, 300) // 5 intentos por 5 minutos
 
     if (limiteResultado.limitado) {
+      // `next-auth/react` espera un `url` en la respuesta para no romperse al
+      // parsearla; el error viaja en el query como cualquier error de login.
       return new NextResponse(
-        JSON.stringify({ error: 'Demasiados intentos. Probá más tarde.' }),
+        JSON.stringify({
+          error: 'Demasiados intentos. Probá más tarde.',
+          url: new URL('/login?error=RateLimit', request.url).toString(),
+        }),
         { status: 429, headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -66,7 +75,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // Determina el prefijo protegido que aplica a esta ruta.
   const ROLES_POR_RUTA: Record<string, readonly string[]> = {
     panel: ['PROFESSIONAL', 'CLIENT'],
-    admin: ['ADMIN'],
+    admin: ['ADMIN', 'MODERADOR'],
     'mis-contactos': ['CLIENT'],
   }
 
@@ -102,6 +111,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|api).*)',
+    '/api/auth/callback/credentials',
+  ],
 }
 

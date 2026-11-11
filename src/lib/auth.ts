@@ -153,29 +153,12 @@ export const authOptions: NextAuthOptions = {
     // no debería perder la sesión a mitad de trabajo.
     maxAge: 30 * 24 * 60 * 60,
   },
-  cookies: {
-    /**
-     * Cookies de sesión seguras.
-     *
-     * - `httpOnly`: JavaScript no puede leer la cookie (previene robo por XSS).
-     * - `secure` en producción: solo viaja por HTTPS.
-     * - `sameSite: 'lax'`: protege contra CSRF sin romper flujos normales.
-     * - `path: '/'`: disponible en toda la aplicación.
-     * - Sin `domain`: se restringe al mismo host.
-     *
-     * NextAuth usa `sessionToken` para el JWT en modo jwt.
-     */
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false,
-        domain: undefined,
-      },
-    },
-  },
+  // Cookies de sesión: se dejan los defaults de NextAuth a propósito.
+  //
+  // En producción el nombre es `__Secure-next-auth.session-token`, y es el
+  // mismo que busca `getToken` en el middleware. Si se fuerza el nombre sin
+  // prefijo, el handler escribe una cookie que el middleware no encuentra y
+  // toda ruta protegida redirige al login en loop.
   pages: {
     signIn: '/login',
     error: '/login',

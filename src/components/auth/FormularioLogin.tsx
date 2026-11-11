@@ -42,12 +42,31 @@ export function FormularioLogin(): React.ReactElement {
     const password = String(datos.get('password') ?? '')
 
     iniciarTransicion(async () => {
-      await signIn('credentials', {
-        redirect: true,
-        email,
-        password,
-        callbackUrl: callbackUrl ?? '/admin',
-      })
+      try {
+        const resultado = await signIn('credentials', {
+          redirect: false,
+          email,
+          password,
+          ...(callbackUrl ? { callbackUrl } : {}),
+        })
+
+        if (!resultado || resultado.error) {
+          setError(
+            resultado?.status === 429
+              ? 'Demasiados intentos. Esperá unos minutos y probá de nuevo.'
+              : 'No pudimos entrar. Revisá tu email y contraseña.',
+          )
+          return
+        }
+
+        // `resultado.url` ya pasó por la validación de NextAuth. No se usa el
+        // callbackUrl crudo del query, que permitiría un redirect externo.
+        window.location.href = callbackUrl
+          ? (resultado.url ?? '/panel')
+          : await destinoPorRol()
+      } catch {
+        setError('No pudimos conectar con el servidor. Probá de nuevo.')
+      }
     })
   }
 
