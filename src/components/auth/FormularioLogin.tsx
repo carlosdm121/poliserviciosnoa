@@ -42,18 +42,12 @@ export function FormularioLogin(): React.ReactElement {
     const password = String(datos.get('password') ?? '')
 
     iniciarTransicion(async () => {
-      const resultado = await signIn('credentials', {
-        redirect: false,
+      await signIn('credentials', {
+        redirect: true,
         email,
         password,
+        callbackUrl: callbackUrl ?? '/admin',
       })
-
-      if (!resultado || resultado.error) {
-        setError('No pudimos entrar. Revisá tu email y contraseña.')
-        return
-      }
-
-      window.location.href = callbackUrl ?? (await destinoPorRol())
     })
   }
 
