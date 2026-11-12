@@ -68,12 +68,12 @@ Mapeo:
 
 | Archivo | Acción | Qué hace |
 |---|---|---|
-| `src/lib/verificacion-email.ts` | nuevo | `crearTokenVerificacion`, `validarTokenVerificacion`, `consumirTokenVerificacion`, `limpiarTokensVerificacion` |
+| `src/lib/verificacion-email.ts` | nuevo | `crearTokenVerificacion`, `verificarEmailConToken`, `limpiarTokensVerificacion` |
 | `src/lib/email.ts` | modificar | `enviarEmailVerificacion` arma el enlace a `/verificar-email?token=...` |
 | `src/app/actions/registro.ts` | modificar | el alta genera token antes de enviar; `reenviarEmailVerificacion` se muda |
 | `src/app/verificar-email/page.tsx` | nuevo | valida el token y muestra el resultado |
 | `src/app/reenviar-verificacion/page.tsx` | nuevo | formulario de reenvío |
-| `src/app/actions/verificacion-email.ts` | nuevo | `reenviarVerificacion(email)` con Zod y rate limit; reemplaza la de `registro.ts` |
+| `src/app/actions/verificacion-email.ts` | nuevo | `reenviarVerificacion(FormData)` con Zod y rate limit; reemplaza la de `registro.ts` |
 | `src/server/jobs/limpieza.ts` | modificar | borra tokens vencidos |
 | `tests/verificacion-email.test.ts` | nuevo | hash, expiración, armado de URL |
 
@@ -83,28 +83,30 @@ Mapeo:
 
 1. `registrarProfesional` crea `User` + `Profile` en una transacción
    (sin cambios).
-2. Después del commit, `crearTokenVerificacion(user.id, user.email)`:
+2. Después del commit, `crearTokenVerificacion(email)`:
    - borra los tokens previos de ese email,
    - genera 32 bytes aleatorios en base64url,
    - guarda el SHA-256 con vencimiento a 24 h,
    - devuelve el token en claro.
-3. `enviarEmailVerificacion({ email, nombre, url })` con
+3. `enviarEmailVerificacion({ email, nombre, token })` arma el enlace
    `${env.NEXTAUTH_URL}/verificar-email?token=<token>`.
-4. Si el envío falla, se mantiene el comportamiento actual: se borra el usuario
-   y se devuelve error (rollback ya implementado).
+4. `enviar` devuelve `{ ok: false }` en vez de lanzar, así que un fallo de
+   Resend deja la cuenta creada y sin verificar. No es un problema: el usuario
+   puede pedir el reenvío. No se toca el rollback existente.
 
 ### 2. Verificación
 
 `GET /verificar-email?token=<token>` (Server Component):
 
 1. Sin token → mensaje de enlace inválido.
-2. `validarTokenVerificacion(token)`:
+2. `verificarEmailConToken(token)`:
    - no existe el hash → inválido,
    - `expires < ahora` → vencido (y se borra),
-   - usuario ya verificado → "ya estaba verificado", sin error.
-3. Si es válido: `consumirTokenVerificacion(token)` en una transacción:
-   - `User.emailVerified = now`,
-   - `deleteMany` de los tokens de ese email.
+   - usuario ya verificado → "ya estaba verificado", sin error,
+   - si es válido → `User.emailVerified = now` y estado verificado.
+3. El token usado **no se borra al verificar**: queda hasta que venza para que
+   abrir el mismo enlace dos veces diga "ya estaba verificado" en lugar de
+   "enlace inválido". El cron lo limpia cuando expira.
 4. Muestra "Email verificado" con enlace a `/panel`.
 
 La verificación no requiere sesión: el enlace funciona en cualquier navegador.
@@ -137,7 +139,9 @@ La acción `reenviarEmailVerificacion` que hoy vive en
 
 - **Token hasheado.** SHA-256 alcanza: 256 bits de entropía y el atacante no
   puede elegir el preimage.
-- **Un solo uso.** Al consumirse se borran todos los tokens del email.
+- **Un solo uso efectivo.** Una vez verificado, el token ya no cambia nada:
+  volver a abrirlo solo responde "ya estaba verificado". El token sobrevive
+  hasta su vencimiento para que el enlace sea idempotente; el cron lo borra.
 - **Vida corta.** 24 h.
 - **No enumera cuentas.** El reenvío responde igual exista o no el email.
 - **Rate limit.** 3 intentos por hora por IP y por email.
@@ -187,9 +191,9 @@ flujo si se agrega, o a mano contra producción con una cuenta de prueba.
 
 ## Riesgos
 
-- **El email puede no salir.** Resend ya se usa en el resto del sistema; si
-  falla, el alta hace rollback y el usuario ve un error. Es el comportamiento
-  actual.
+- **El email puede no salir.** `enviar` devuelve `{ ok: false }` en vez de
+  lanzar. La cuenta queda creada y sin verificar, y el usuario puede pedir el
+  reenvío desde `/reenviar-verificacion`.
 - **Usuarios ya registrados y sin verificar** no se verifican solos: no tienen
   token. Se resuelve pidiendo el reenvío desde la página nueva, o a mano desde
   el admin.
