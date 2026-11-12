@@ -54,7 +54,7 @@ actualiza acá.
 | Action | Archivo | Qué hace | Quién puede | Control de acceso | Rate limit |
 |--------|---------|----------|-------------|-------------------|------------|
 | `registrarProfesional` | `actions/registro.ts` | Alta de profesional | Visitante | Zod + bloqueo de identificadores + lista de bloqueo | 5/IP/3600s |
-| `reenviarEmailVerificacion` | `actions/registro.ts` | Reenviar email de verificación | Autenticado | Mismo mensaje si el email no existe | No |
+| `reenviarVerificacion` | `actions/verificacion-email.ts` | Reenviar email de verificación | Visitante | Mismo mensaje si el email no existe | 3/IP/3600s y 3/email/3600s |
 | `pedirCodigoWhatsApp` | `actions/whatsapp.ts` | Pedir código de verificación | Dueño del perfil | Sesión + perfil de la sesión | En servicio (5/hora, 20/día por IP) |
 | `verificarWhatsAppComoAdmin` | `actions/whatsapp.ts` | Verificar número a mano | Solo ADMIN | Sesión + `role === ADMIN` | No |
 | `votar` | `actions/votos.ts` | Alternar corazón | CLIENT con contacto previo | Sesión + `role === CLIENT` + contacto 24h antes | 20/cliente/3600s |

@@ -6,6 +6,7 @@ import { NOMBRE_PAGINA } from '@/lib/constantes'
 import { formatArs } from '@/lib/dinero'
 import { formatearFechaLarga } from '@/lib/fechas'
 import { logger } from '@/lib/logger'
+import { armarUrlVerificacion } from '@/lib/verificacion-email'
 
 /**
  * Envío de emails.
@@ -141,27 +142,24 @@ function plantilla(titulo: string, contenido: string): string {
 /**
  * Email de verificación de cuenta.
  *
- * El enlace lo genera Auth.js con su propio token; acá solo se arma el texto
- * y se delega el envío a `sendVerificationRequest` de la config.
+ * El token lo genera `crearTokenVerificacion`; acá solo se arma el enlace a
+ * `/verificar-email` y se delega el envío a `enviar`.
  */
 export async function enviarEmailVerificacion(params: {
   email: string
   nombre: string
-  token?: string
-  url?: string
+  token: string
 }): Promise<ResultadoEnvio> {
-  const { nombre, email, token, url } = params
+  const { nombre, email, token } = params
 
-  // Si Auth.js ya calculó la URL y el token, se respetan: es la misma que usa
-  // internamente y así el enlace de la app y el del email no se divergen.
-  const enlace = url ?? `${env.NEXTAUTH_URL}/api/auth/verify-email?token=${token ?? ''}`
+  const enlace = armarUrlVerificacion(token)
 
   return enviar({
     to: email,
     subject: 'Verificá tu email',
     html: plantilla(
       'Verificá tu email',
-      `<p style="margin:0 0 24px;font-size:16px;line-height:1.6;">Hola ${nombre}, tocá el botón para confirmar tu email. Sin verificar no podés entrar al panel.</p>
+      `<p style="margin:0 0 24px;font-size:16px;line-height:1.6;">Hola ${nombre}, tocá el botón para confirmar tu email.</p>
        <a href="${enlace}" style="display:inline-block;background:#0A0A0A;color:#FFFFFF;text-decoration:none;padding:14px 24px;font-size:15px;font-weight:700;text-transform:uppercase;border:3px solid #0A0A0A;">Verificar email</a>
        <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#6B6B6B;">Si no lo hacés, tu perfil no puede publicarse.</p>`,
     ),

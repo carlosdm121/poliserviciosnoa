@@ -150,12 +150,16 @@ export async function registrarProfesional(
     )
   }
 
-  // Enviar el email de verificación. Si falla, la cuenta queda creada pero sin
-  // verificar: el usuario puede pedir que se lo reenvíen. Es preferible a tirar
-  // atrás el registro entero por un problema del proveedor de email.
+  // Generar el token y enviar el email de verificación. Si falla, la cuenta
+  // queda creada pero sin verificar: el usuario puede pedir que se lo
+  // reenvíen. Es preferible a tirar atrás el registro entero por un problema
+  // del proveedor de email.
   try {
+    const { crearTokenVerificacion } = await import('@/lib/verificacion-email')
+    const token = await crearTokenVerificacion(email)
+
     const { enviarEmailVerificacion } = await import('@/lib/email')
-    await enviarEmailVerificacion({ email, nombre: name })
+    await enviarEmailVerificacion({ email, nombre: name, token })
   } catch (error: unknown) {
     // Rollback: eliminar usuario creado
     try {
@@ -221,33 +225,4 @@ async function registrarRiesgoDelAlta(email: string, ip?: string): Promise<void>
   }
 
   await registrarAltaDesdeIp(ip ? hashValor(ip) : null, perfil.id)
-}
-
-/**
- * Email de verificación.
- *
- * Auth.js expone `/api/auth/verify-email?token=...` para confirmar. Acá solo
- * se dispara el envío; el token lo genera Auth.js y su vida es corta.
- */
-export async function reenviarEmailVerificacion(email: string): Promise<Resultado<null>> {
-  const usuario = await prisma.user.findUnique({ where: { email } })
-
-  if (!usuario) {
-    // Mismo mensaje que si existe: no le decimos a un atacante qué emails
-    // están registrados.
-    return ok(null)
-  }
-
-  if (usuario.emailVerified) {
-    return err('Ese email ya está verificado.', ERROR_CODES.ESTADO_INVALIDO)
-  }
-
-  try {
-    const { enviarEmailVerificacion } = await import('@/lib/email')
-    await enviarEmailVerificacion({ email, nombre: usuario.name ?? 'bienvenido' })
-    return ok(null)
-  } catch (error: unknown) {
-    logger.error('reenviarEmailVerificacion: fallo el envío', { error })
-    return err('No pudimos enviar el email. Probá en un rato.', ERROR_CODES.ERROR_EXTERNO)
-  }
 }
