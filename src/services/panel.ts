@@ -156,7 +156,9 @@ const MOTIVOS_RESOLUBLES: ReadonlySet<MotivoBloqueo> = new Set<MotivoBloqueo>([
  * marca acá en vez de dejar un enlace `undefined` en el panel.
  */
 const RUTA_POR_MOTIVO: Record<MotivoBloqueo, string> = {
-  EMAIL_SIN_VERIFICAR: '/panel/cuenta',
+  // El checklist manda acá cuando falta verificar el email: el destino es la
+  // pantalla donde se pide el enlace, no /panel/cuenta (que es datos fiscales).
+  EMAIL_SIN_VERIFICAR: '/reenviar-verificacion',
   SIN_SUSCRIPCION: '/panel/suscripcion',
   SUSCRIPCION_VENCIDA: '/panel/suscripcion',
   SIN_IMAGENES: '/panel/galeria',

@@ -71,6 +71,13 @@ async function enviar(params: {
     })
 
     if (respuesta.error) {
+      // Sin este log, un rechazo de Resend (dominio sin verificar, cuota) deja
+      // al usuario sin email y sin rastro del motivo.
+      logger.error('email: Resend rechazo el envio', {
+        motivo: respuesta.error.message,
+        plantilla: params.subject,
+      })
+
       return { ok: false, error: respuesta.error.message }
     }
 

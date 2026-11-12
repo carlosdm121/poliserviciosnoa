@@ -81,7 +81,7 @@ export const MOTIVOS_REQUISITO: Record<RequisitoPago, string> = {
 
 /** Sección donde se resuelve cada requisito. */
 export const RUTA_POR_REQUISITO: Record<RequisitoPago, string> = {
-  EMAIL_SIN_VERIFICAR: '/panel/cuenta',
+  EMAIL_SIN_VERIFICAR: '/reenviar-verificacion',
   WHATSAPP_SIN_VERIFICAR: '/panel/whatsapp',
   PERFIL_INCOMPLETO: '/panel/perfil',
   SIN_RUBRO_PRINCIPAL: '/panel/perfil',

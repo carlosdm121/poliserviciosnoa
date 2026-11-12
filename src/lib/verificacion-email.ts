@@ -47,7 +47,10 @@ export function fechaExpiracionToken(ahora: Date = new Date()): Date {
 
 /** Enlace que recibe el usuario por email. */
 export function armarUrlVerificacion(token: string): string {
-  return `${env.NEXTAUTH_URL}/verificar-email?token=${encodeURIComponent(token)}`
+  // Se recorta la barra final: `NEXTAUTH_URL=https://x.com/` armaría `//verificar-email`.
+  const base = env.NEXTAUTH_URL.replace(/\/+$/, '')
+
+  return `${base}/verificar-email?token=${encodeURIComponent(token)}`
 }
 
 /**
