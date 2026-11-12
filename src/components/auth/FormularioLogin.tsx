@@ -112,14 +112,9 @@ export function FormularioLogin(): React.ReactElement {
 
       <div className="space-y-2 border-t-[3px] border-ink pt-6 text-sm">
         <p>
-          <Link href="/recuperar-contrasena" className="font-bold underline">
-            ¿Olvidaste tu contraseña?
-          </Link>
-        </p>
-        <p className="text-muted">
-          Si no verificaste tu email,{' '}
-          <Link href="/reenviar-verificacion" className="font-bold underline">
-            pedinos que te lo reenviemos
+          ¿Problemas para entrar?{' '}
+          <Link href="/soporte" className="font-bold underline">
+            Escribinos
           </Link>
           .
         </p>

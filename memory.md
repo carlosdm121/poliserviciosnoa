@@ -902,3 +902,101 @@ fila "Activa hasta 04/12/2026".
   (contención de CPU). Correr `npm test` solo; 450/450.
 - **No commitear artefactos:** `.tmp-*` quedó fuera; `.env` sigue ignorado.
 
+---
+
+## Sesión 2026-11-11 — login roto en producción y rotación de la clave admin
+
+**Estado: arreglado, desplegado y verificado en producción.** Commit `86fc1b4`
+en `main` de `carlosdm121/poliserviciosnoa`.
+
+### El bug
+
+El login "entraba" pero rebotaba a `/login`. Causa: `authOptions.cookies`
+forzaba el nombre `next-auth.session-token`, mientras que en producción NextAuth
+usa el prefijo seguro `__Secure-next-auth.session-token`. El handler escribía
+una cookie y `getToken` del middleware buscaba otra, así que toda ruta
+protegida redirigía al login en loop.
+
+**Cómo se confirmó:** POST a `/api/auth/callback/credentials` devolvía 200 + JWT
+válido en `/api/auth/session`, pero `/admin` con esa cookie respondía 307 a
+`/login`. El mismo JWT renombrado a `__Secure-` daba 200.
+
+### Qué se cambió
+
+| Archivo | Cambio |
+|---|---|
+| `src/lib/auth.ts` | Se elimina el override de `cookies.sessionToken`; quedan los defaults |
+| `src/middleware.ts` | Rate limit solo en `POST /api/auth/callback/credentials`; matcher incluye esa ruta; el 429 devuelve JSON con `url`; `/admin` acepta `MODERADOR` |
+| `src/components/auth/FormularioLogin.tsx` | `redirect: false`, destino por rol, errores visibles, `callbackUrl` validado |
+| `scripts/creadmin.ts` | Ya no tiene la contraseña hardcodeada; exige `ADMIN_PASSWORD` del entorno |
+| `scripts/check-admin.ts` | Idem: lee `ADMIN_PASSWORD` en vez de tenerla escrita |
+
+**Bug secundario arreglado:** el 6º GET a `/login` devolvía `429` crudo. Ahora
+el limitador solo cuenta intentos reales de login (5 cada 5 minutos por IP).
+
+### La contraseña del admin
+
+La vieja (`PoliserviciosNOA2026!`) estaba en texto plano en los dos scripts y
+se había compartido en el chat. Se rotó con un `UPDATE` desde el **SQL Editor**
+del proyecto Supabase `sxfddbpkmtmodpfqegp`:
+
+```sql
+UPDATE "User"
+SET "passwordHash" = '<bcrypt costo 12>',
+    "sessionVersion" = "sessionVersion" + 1
+WHERE email = 'admin@poliserviciosnoa.com';
+```
+
+Hay **dos** cuentas ADMIN en esa base: `admin@poliserviciosnoa.com` y
+`carlosdmartinez121@gmail.com`. Solo se rotó la primera; la segunda sigue con
+la clave vieja si no se cambió.
+
+### Cómo verificar que un deploy entró
+
+Sin credenciales de Vercel: pedir `/login` 8 veces seguidas. Antes del fix la
+6ª devolvía 429; después, todas 200.
+
+### Aprendizajes
+
+- **Una cookie con nombre equivocado se ve igual que "contraseña incorrecta".**
+  NextAuth sin `redirect: false` no muestra el error: rebota al login y el
+  usuario cree que se equivocó de clave. El síntoma "entra pero vuelve al login"
+  es de cookie o de `sessionVersion`, no de credenciales.
+- **El `Location` de la respuesta es la evidencia.** `error=CredentialsSignin`
+  significa que la base respondió y rechazó la clave. `CallbackRouteError` o
+  `Configuration` significan otra cosa. Sin ese header se adivina de más.
+- **`signIn` con `redirect: false` y la respuesta del rate limit.** Si el
+  middleware devuelve 429 crudo, el formulario lo muestra como error genérico de
+  contraseña. Cualquier 429 del limitador se confunde con clave mala.
+- **El SQL Editor de Supabase muestra "Success. No rows returned" en cualquier
+  UPDATE**, aunque haya tocado filas. No sirve para saber si el `WHERE` matcheó:
+  para eso hay que hacer un `SELECT` después.
+- **Un hash bcrypt no se puede revertir.** La contraseña hay que anotarla antes
+  de hashearla; si se pierde, se genera otra. La misma clave da hashes distintos
+  por la sal.
+- **`node -e` con bcryptjs no termina solo:** hay que agregar `process.exit(0)`
+  o el proceso queda colgado después de imprimir el hash.
+- **El repo es público.** Cualquier secreto en un archivo versionado queda
+  expuesto para siempre en el historial de git, aunque después se borre.
+
+### Pendiente
+
+- **Links de `/login` — RESUELTO (2026-11-11).** Se sacaron los dos links
+  rotos (`/recuperar-contrasena` y `/reenviar-verificacion`) y quedó uno solo a
+  `/soporte`: "¿Problemas para entrar? Escribinos".
+- **SIGUIENTE — Verificación de email rota.** `enviarEmailVerificacion`
+  (`src/lib/email.ts:157`) arma el enlace a `/api/auth/verify-email?token=...` y
+  **esa ruta no existe**. O sea que el email de alta manda a un 404, y
+  `emailVerified` solo se completa desde `creadmin.ts` (o a mano). La
+  verificación de email no funciona de punta a punta. Sin eso, un profesional
+  no puede cumplir el requisito de publicación "email verificado"
+  (`evaluarPublicacion`, D4) por su cuenta.
+- **Recuperación de contraseña sin usar:** `src/lib/recovery-token.ts` está
+  completo (crear, validar, consumir, invalidar sesiones; SHA-256, 30 min) pero
+  **ningún archivo lo importa**. Falta acción, plantilla de email y páginas. Si
+  se retoma, ese archivo ya resuelve la parte difícil.
+- Rotar también la clave de `carlosdmartinez121@gmail.com` si comparte la vieja.
+- El proyecto Supabase que usa Vercel es `sxfddbpkmtmodpfqegp`. El `.env` local
+  apunta a otro (`nvhjnopnonsrbyyvalvx`) que no tiene tabla `User`: no sirve para
+  correr scripts contra producción.
+
