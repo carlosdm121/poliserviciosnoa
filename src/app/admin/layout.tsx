@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { AdminNav } from '@/components/admin/AdminNav'
 import { seccionesVisibles, textoRol } from '@/lib/admin'
 import { exigirAccesoPagina } from '@/lib/admin-auth'
 
@@ -28,38 +29,26 @@ export default async function LayoutAdmin({
 
   return (
     <div className="min-h-screen bg-paper">
-      <header className="border-b-[3px] border-ink bg-ink text-paper">
+      <header className="border-b-[3px] border-ink bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/admin" className="text-lg font-black uppercase tracking-wide">
+            <Link href="/admin" className="text-lg font-black uppercase tracking-wide text-ink">
               Panel
             </Link>
-            <span className="etiqueta border-paper bg-ink text-paper">
+            <span className="etiqueta border-noa-blue bg-noa-blue text-white">
               {textoRol(actor.role)}
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-sm">
-            <span className="hidden text-paper/70 sm:inline">{actor.email}</span>
-            <Link href="/" className="font-bold underline underline-offset-2">
+            <span className="hidden text-muted sm:inline">{actor.email}</span>
+            <Link href="/" className="font-bold text-noa-blue underline underline-offset-2">
               Ver sitio
             </Link>
           </div>
         </div>
 
-        <nav aria-label="Secciones del panel" className="border-t border-paper/20">
-          <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 py-2 sin-barra">
-            {secciones.map((seccion) => (
-              <Link
-                key={seccion.key}
-                href={seccion.href}
-                className="whitespace-nowrap px-3 py-2 text-sm font-bold uppercase tracking-wide hover:bg-paper hover:text-ink"
-              >
-                {seccion.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
+        <AdminNav secciones={secciones} />
       </header>
 
       <main>{children}</main>

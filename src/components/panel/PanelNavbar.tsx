@@ -50,8 +50,10 @@ export function PanelNavbar(): React.ReactElement {
                 href={seccion.href}
                 aria-current={activa ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-[44px] items-center whitespace-nowrap border-[3px] border-ink px-4 py-2 font-bold uppercase transition-colors',
-                  activa ? 'bg-ink text-paper' : 'bg-paper hover:bg-ink hover:text-paper',
+                  'flex min-h-[44px] items-center whitespace-nowrap border-[3px] px-4 py-2 font-bold uppercase transition-colors',
+                  activa
+                    ? 'border-noa-blue bg-noa-blue text-white'
+                    : 'border-ink bg-paper hover:border-noa-blue hover:text-noa-blue',
                 )}
               >
                 {seccion.label}
