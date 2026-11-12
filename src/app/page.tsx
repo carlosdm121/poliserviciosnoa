@@ -4,8 +4,10 @@ import type { Metadata } from 'next'
 import { AccesosPorProvincia, BuscadorHome } from '@/components/home/BuscadorHome'
 import { HeroSlideshow } from '@/components/home/HeroSlideshow'
 import { InstalarApp } from '@/components/legales/InstalarApp'
+import { ProfessionalCard } from '@/components/profesionales/ProfessionalCard'
 import { prisma } from '@/lib/prisma'
 import { NOMBRE_PAGINA, PROVINCIAS, PROVINCIAS_LISTA } from '@/lib/constantes'
+import { searchProfiles } from '@/server/search'
 import { CONDICION_PERFIL_PUBLICO } from '@/services/publicacion'
 
 /**
@@ -83,6 +85,14 @@ export default async function HomePage(): Promise<React.ReactElement> {
   })
 
   const perfilesPorRubro = new Map(conteo.map((fila) => [fila.categoryId, fila._count._all]))
+
+  // Mejor valorados.
+  //
+  // `searchProfiles` ya ordena por corazones descendente, así que se reutiliza
+  // en vez de repetir su `select`. Solo entran los perfiles con al menos un
+  // corazón: un ranking todo en cero no dice nada y ocupa la portada.
+  const { perfiles } = await searchProfiles({})
+  const mejorValorados = perfiles.filter((perfil) => perfil.heartsCount > 0).slice(0, 6)
 
   return (
     <>
@@ -175,6 +185,31 @@ export default async function HomePage(): Promise<React.ReactElement> {
           ))}
         </div>
       </section>
+
+      {mejorValorados.length > 0 && (
+        <section
+          aria-labelledby="titulo-mejor-valorados"
+          className="mx-auto mt-16 max-w-6xl px-4"
+        >
+          <h2 id="titulo-mejor-valorados" className="text-title font-black uppercase">
+            Los mejor valorados
+            <span
+              className="mt-3 block h-2 w-24 rounded-full bg-gradient-to-r from-noa-blue to-noa-cyan"
+              aria-hidden="true"
+            />
+          </h2>
+
+          <p className="mt-4 max-w-prose text-lg leading-relaxed">
+            Los profesionales que más corazones juntaron de la gente que ya los contactó.
+          </p>
+
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {mejorValorados.map((perfil) => (
+              <ProfessionalCard key={perfil.id} profile={perfil} logueado={false} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="mx-auto max-w-6xl px-4">
         <AccesosPorProvincia />
