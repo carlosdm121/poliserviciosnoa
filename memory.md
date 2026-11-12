@@ -984,13 +984,10 @@ Sin credenciales de Vercel: pedir `/login` 8 veces seguidas. Antes del fix la
 - **Links de `/login` — RESUELTO (2026-11-11).** Se sacaron los dos links
   rotos (`/recuperar-contrasena` y `/reenviar-verificacion`) y quedó uno solo a
   `/soporte`: "¿Problemas para entrar? Escribinos".
-- **SIGUIENTE — Verificación de email rota.** `enviarEmailVerificacion`
-  (`src/lib/email.ts:157`) arma el enlace a `/api/auth/verify-email?token=...` y
-  **esa ruta no existe**. O sea que el email de alta manda a un 404, y
-  `emailVerified` solo se completa desde `creadmin.ts` (o a mano). La
-  verificación de email no funciona de punta a punta. Sin eso, un profesional
-  no puede cumplir el requisito de publicación "email verificado"
-  (`evaluarPublicacion`, D4) por su cuenta.
+- **Verificación de email — IMPLEMENTADA (2026-11-12), falta probar en
+  producción.** El enlace ahora apunta a `/verificar-email?token=...`; hay
+  reenvío con rate limit y el cron borra los tokens vencidos. Ver el detalle al
+  final del archivo.
 - **Recuperación de contraseña sin usar:** `src/lib/recovery-token.ts` está
   completo (crear, validar, consumir, invalidar sesiones; SHA-256, 30 min) pero
   **ningún archivo lo importa**. Falta acción, plantilla de email y páginas. Si
@@ -999,4 +996,24 @@ Sin credenciales de Vercel: pedir `/login` 8 veces seguidas. Antes del fix la
 - El proyecto Supabase que usa Vercel es `sxfddbpkmtmodpfqegp`. El `.env` local
   apunta a otro (`nvhjnopnonsrbyyvalvx`) que no tiene tabla `User`: no sirve para
   correr scripts contra producción.
+
+---
+
+## Sesión 2026-11-12 — verificación de email
+
+**Estado: implementado y verificado en local, pendiente de probar en producción.**
+
+- `src/lib/verificacion-email.ts`: token de 32 bytes en base64url, guardado
+  como SHA-256 en `VerificationToken` (sin cambio de schema), vida 24 h.
+- `/verificar-email`: valida, marca `User.emailVerified` y es idempotente
+  (abrir el link dos veces dice "ya estaba verificado").
+- `/reenviar-verificacion`: 3 reenvíos por hora por IP y por email; responde
+  igual exista o no la cuenta.
+- `src/lib/email.ts`: el enlace ahora es `/verificar-email?token=...` (antes
+  apuntaba a `/api/auth/verify-email`, que no existía).
+- `src/server/jobs/limpieza.ts`: borra los tokens vencidos.
+- El token usado **no** se borra al verificar: sobrevive hasta el vencimiento
+  para que el enlace sea idempotente.
+- Pendiente: probar el alta real en producción y confirmar que llega el email
+  de Resend.
 
