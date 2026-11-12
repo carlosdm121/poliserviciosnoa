@@ -1017,3 +1017,32 @@ Sin credenciales de Vercel: pedir `/login` 8 veces seguidas. Antes del fix la
 - Pendiente: probar el alta real en producción y confirmar que llega el email
   de Resend.
 
+
+---
+
+## Sesión 2026-11-12 - flujo de publicación
+
+**Estado: implementado y verificado en local (typecheck, lint, 461 tests, build).**
+
+Ajustes para que el producto coincida con el flujo que el dueño tenía en mente:
+
+- **URL pública sin `/p/`.** `/<slug>` se sirve con `/p/<slug>` mediante una
+  reescritura en `src/middleware.ts`. No se pudo crear `app/[slug]` porque
+  `app/[provincia]` ya ocupa el primer segmento. `/p/<slug>` sigue funcionando:
+  ningún link ya compartido se rompe. El patrón vive en `src/lib/slug-perfil.ts`
+  y coincide con lo que produce `generarSlugPerfil` (nombre + `-` + 4 caracteres
+  al azar), que es lo que lo distingue de las rutas fijas y las provincias.
+- **Home: "Los mejor valorados".** Entre los rubros y las provincias, hasta 6
+  tarjetas ordenadas por corazones. Si nadie tiene corazones, la sección no se
+  renderiza.
+- **Mail de pago acreditado con el link público.** Antes el link solo estaba en
+  el panel. La acreditación manual del admin sigue sin mandar email.
+- **Marco de `/panel` y `/admin` con los colores de la marca.** La barra del
+  admin era negra y competía con la cabecera pública; ahora es blanca con acento
+  azul y sección activa marcada (`src/components/admin/AdminNav.tsx`). El menú
+  del panel marca el activo en azul.
+
+Spec: `docs/superpowers/specs/2026-11-12-ajustes-flujo-publicacion.md`.
+
+Pendiente: push (deploya en Vercel) y prueba de punta a punta del alta.
+
