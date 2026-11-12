@@ -195,7 +195,7 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
             </Link>
           )}
 
-          <Link href={`/p/${profile.slug}`} className="btn-linea w-full">
+          <Link href={`/${profile.slug}`} className="btn-linea w-full">
             Ver perfil
           </Link>
         </div>

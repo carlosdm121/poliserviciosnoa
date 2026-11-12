@@ -31,7 +31,7 @@ describe('construirJsonLdBreadcrumbList', () => {
       { name: 'Inicio', url: '/' },
       { name: 'Tucumán', url: '/tucuman' },
       { name: 'Electricista', url: '/tucuman/electricista' },
-      { name: 'Ana Pérez', url: '/p/ana-perez' },
+      { name: 'Ana Pérez', url: '/ana-perez' },
     ]) as {
       '@context'?: string
       '@type': string
@@ -51,7 +51,7 @@ describe('construirJsonLdBreadcrumbList', () => {
       '@type': 'ListItem',
       position: 4,
       name: 'Ana Pérez',
-      item: '/p/ana-perez',
+      item: '/ana-perez',
     })
   })
 })

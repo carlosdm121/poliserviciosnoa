@@ -120,7 +120,7 @@ describe('ProfessionalCard', () => {
     expect(html).toContain('alt="Foto de Ana Pérez"')
     expect(html).toContain('♡ 24')
     expect(html).toContain('href="/api/contacto/ana-perez"')
-    expect(html).toContain('href="/p/ana-perez"')
+    expect(html).toContain('href="/ana-perez"')
   })
 
   it('muestra una empresa verificada, con matrícula y sin cobertura', () => {

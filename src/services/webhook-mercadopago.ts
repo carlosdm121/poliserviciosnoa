@@ -736,7 +736,7 @@ async function enviarAvisoPago(
 
   const perfil = await prisma.profile.findUnique({
     where: { id: profileId },
-    select: { user: { select: { email: true, name: true } } },
+    select: { slug: true, user: { select: { email: true, name: true } } },
   })
 
   if (!perfil?.user.email) return
@@ -770,6 +770,7 @@ async function enviarAvisoPago(
     nombre: perfil.user.name ?? '',
     monto: pago.monto,
     periodoHasta,
+    urlEspacio: `${env.NEXTAUTH_URL.replace(/\/+$/, '')}/${perfil.slug}`,
   })
 
   if (!envio.ok) {

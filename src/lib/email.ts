@@ -177,17 +177,21 @@ export async function enviarEmailVerificacion(params: {
 /**
  * Email de pago acreditado.
  *
- * Es el único email que confirma que la suscripción arrancó. El monto y la
- * fecha salen de la base y del formateador, nunca escritos en la plantilla: el
- * día que cambie el precio, este texto no puede quedar viejo.
+ * Es el único email que confirma que la suscripción arrancó, y desde acá la
+ * persona se entera de la dirección que tiene que compartir: hasta hace poco
+ * el link solo aparecía en el panel, y quien pagaba no sabía qué mandar.
+ *
+ * El monto y la fecha salen de la base y del formateador, nunca escritos en la
+ * plantilla: el día que cambie el precio, este texto no puede quedar viejo.
  */
 export async function enviarEmailPagoAprobado(params: {
   email: string
   nombre: string
   monto: number
   periodoHasta: Date
+  urlEspacio: string
 }): Promise<ResultadoEnvio> {
-  const { email, nombre, monto, periodoHasta } = params
+  const { email, nombre, monto, periodoHasta, urlEspacio } = params
   const importe = formatArs(monto)
   const hasta = formatearFechaLarga(periodoHasta)
 
@@ -197,11 +201,13 @@ export async function enviarEmailPagoAprobado(params: {
     html: plantilla(
       'Pago acreditado',
       `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola ${nombre}, recibimos tu pago de <strong>${importe}</strong>.</p>
-       <p style="margin:0 0 24px;font-size:16px;line-height:1.6;">Tu suscripción está activa hasta el <strong>${hasta}</strong>. El próximo cobro se hace automáticamente con la tarjeta que registraste.</p>
+       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Tu suscripción está activa hasta el <strong>${hasta}</strong>. El próximo cobro se hace automáticamente con la tarjeta que registraste.</p>
+       <p style="margin:0 0 8px;font-size:16px;line-height:1.6;">Este es tu link público. Es el que compartís en WhatsApp y en tus redes:</p>
+       <p style="margin:0 0 24px;font-size:16px;line-height:1.6;word-break:break-all;"><a href="${urlEspacio}" style="color:#0A84FF;font-weight:700;">${urlEspacio}</a></p>
        <a href="${env.NEXTAUTH_URL}/panel" style="display:inline-block;background:#0A0A0A;color:#FFFFFF;text-decoration:none;padding:14px 24px;font-size:15px;font-weight:700;text-transform:uppercase;border:3px solid #0A0A0A;">Ir al panel</a>
        <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#6B6B6B;">Si no reconocés este pago, respondé este email.</p>`,
     ),
-    text: `Hola ${nombre}: recibimos tu pago de ${importe}. Tu suscripción está activa hasta el ${hasta}.`,
+    text: `Hola ${nombre}: recibimos tu pago de ${importe}. Tu suscripción está activa hasta el ${hasta}. Tu link público es ${urlEspacio}.`,
   })
 }
 
@@ -426,7 +432,7 @@ export async function enviarInvitacionVotar(params: {
   const { email, nombre, nombreProfesional, slug, clientId } = params
 
   const sig = firmarBaja(clientId)
-  const enlaceVotar = `${env.NEXTAUTH_URL}/p/${slug}`
+  const enlaceVotar = `${env.NEXTAUTH_URL}/${slug}`
   const enlaceBaja = `${env.NEXTAUTH_URL}/api/invitacion/dar-de-baja?clientId=${clientId}&sig=${sig}`
 
   return enviar({

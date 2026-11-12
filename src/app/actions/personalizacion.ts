@@ -35,7 +35,7 @@ export async function editarEspacioPersonalizacion(
 
   const perfil = await prisma.profile.findUnique({
     where: { userId: sesion.user.id },
-    select: { id: true },
+    select: { id: true, slug: true },
   })
 
   if (!perfil) {
@@ -56,7 +56,10 @@ export async function editarEspacioPersonalizacion(
 
   if (resultado.ok) {
     revalidatePath('/panel/espacio')
-    revalidatePath(`/p/${perfil.id}`)
+    // Las dos formas de la URL sirven el mismo perfil. Si se revalida una sola,
+    // el link que la persona comparte puede quedar con la versión vieja.
+    revalidatePath(`/p/${perfil.slug}`)
+    revalidatePath(`/${perfil.slug}`)
   }
 
   return resultado

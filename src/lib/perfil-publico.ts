@@ -197,7 +197,7 @@ export function resumenPerfil(perfil: PerfilParaPublicar): string {
 
 /** URL absoluta del perfil. */
 export function urlPerfil(perfil: PerfilParaPublicar, urlBase: string): string {
-  return `${urlBase.replace(/\/+$/, '')}/p/${perfil.slug}`
+  return `${urlBase.replace(/\/+$/, '')}/${perfil.slug}`
 }
 
 /**
@@ -345,14 +345,14 @@ export function construirMetadata(perfil: PerfilParaPublicar): Metadata {
   return {
     title: titulo,
     description: descripcion,
-    alternates: { canonical: `/p/${perfil.slug}` },
+    alternates: { canonical: `/${perfil.slug}` },
     openGraph: {
       type: 'website',
       locale: 'es_AR',
       siteName: NOMBRE_PAGINA,
       title: titulo,
       description: descripcion,
-      url: `/p/${perfil.slug}`,
+      url: `/${perfil.slug}`,
       ...(imagen ? { images: [imagen] } : {}),
     },
     twitter: {

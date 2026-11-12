@@ -129,7 +129,7 @@ export default async function PerfilPublicoPage({
                 : provinciaBase
                   ? [{ name: provinciaBase.nombre, url: `/${provinciaBase.slug}` }]
                   : []),
-              { name: nombre, url: `/p/${perfil.slug}` },
+              { name: nombre, url: `/${perfil.slug}` },
             ]),
           ),
         }}

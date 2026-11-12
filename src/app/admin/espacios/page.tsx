@@ -99,12 +99,12 @@ export default async function PaginaCrearEspacio(): Promise<React.ReactElement> 
                   <p className="text-sm text-muted">{espacio.user.email}</p>
                   <p className="text-sm">
                     <a
-                      href={`/p/${espacio.slug}`}
+                      href={`/${espacio.slug}`}
                       target="_blank"
                       rel="noreferrer"
                       className="font-bold underline underline-offset-2"
                     >
-                      /p/{espacio.slug}
+                      /{espacio.slug}
                     </a>
                   </p>
                   <p className="text-sm">

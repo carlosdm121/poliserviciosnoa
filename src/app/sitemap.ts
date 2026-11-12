@@ -47,7 +47,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Perfiles publicados.
   for (const perfil of perfiles) {
     entradas.push({
-      url: `${URL_BASE}/p/${perfil.slug}`,
+      url: `${URL_BASE}/${perfil.slug}`,
       lastModified: perfil.updatedAt,
       changeFrequency: 'weekly',
       priority: 0.8,

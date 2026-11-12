@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { headersSeguridad, generarNonce } from '@/lib/security-headers'
 import { rateLimit } from '@/lib/ratelimit'
 import { ipHasheada } from '@/lib/peticion'
+import { SLUG_PERFIL } from '@/lib/slug-perfil'
 
 /**
  * Middleware de autorización por rol y headers de seguridad.
@@ -33,7 +34,23 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const nonce = generarNonce()
 
   // Respuesta base: headers de seguridad en toda respuesta.
-  const respuesta = NextResponse.next()
+  let respuesta = NextResponse.next()
+
+  // URL corta del perfil: `/ana-perez-x7k2` se sirve con la página de
+  // `/p/ana-perez-x7k2`, sin cambiar la barra de direcciones.
+  //
+  // El primer segmento de la URL ya lo ocupa `app/[provincia]`, así que no se
+  // puede crear un `app/[slug]` paralelo: Next rechaza dos segmentos dinámicos
+  // distintos en el mismo nivel. La reescritura resuelve lo mismo sin mover la
+  // ruta interna, y los links viejos con `/p/` siguen funcionando.
+  const segmento = pathname.replace(/^\/|\/$/g, '')
+
+  if (
+    (request.method === 'GET' || request.method === 'HEAD') &&
+    SLUG_PERFIL.test(segmento)
+  ) {
+    respuesta = NextResponse.rewrite(new URL(`/p/${segmento}`, request.url))
+  }
 
   // Nonce criptográfico por request para la CSP.
   respuesta.headers.set(NONCE_HEADER, nonce)

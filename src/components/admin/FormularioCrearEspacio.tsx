@@ -61,7 +61,7 @@ export function FormularioCrearEspacio({
     const origen = window.location.origin
     const mensaje = `Hola ${estado.nombre}, tu espacio en PoliserviciosNOA ya está creado.
 
-Tu espacio: ${origen}/p/${estado.slug}
+Tu espacio: ${origen}/${estado.slug}
 Para editarlo entrá a ${origen}/login con:
 Email: ${estado.email}
 Clave temporal: ${estado.password}
@@ -196,12 +196,12 @@ Cuando entres, cambiá la clave desde "Mi cuenta" y completá fotos y descripci�
               <dt className="font-black uppercase">Dirección del espacio</dt>
               <dd>
                 <a
-                  href={`/p/${estado.slug}`}
+                  href={`/${estado.slug}`}
                   target="_blank"
                   rel="noreferrer"
                   className="font-bold underline underline-offset-2"
                 >
-                  /p/{estado.slug}
+                  /{estado.slug}
                 </a>
               </dd>
             </div>

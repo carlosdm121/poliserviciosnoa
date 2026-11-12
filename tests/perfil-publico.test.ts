@@ -113,7 +113,7 @@ describe('JSON-LD', () => {
     const areas = datos.areaServed as { '@type': string; name: string }[]
 
     expect(datos['@type']).toBe('LocalBusiness')
-    expect(datos.url).toBe('https://poliservicios-noa.com.ar/p/ana-perez')
+    expect(datos.url).toBe('https://poliservicios-noa.com.ar/ana-perez')
     expect(areas).toContainEqual({ '@type': 'City', name: 'Yerba Buena' })
     expect(areas).toContainEqual({ '@type': 'City', name: 'San Miguel de Tucumán' })
     expect(areas).toContainEqual({ '@type': 'AdministrativeArea', name: 'Tucumán' })
@@ -173,7 +173,7 @@ describe('metadatos', () => {
 
     expect(meta.title).toBe('Ana Pérez - Electricista en Yerba Buena')
     expect(meta.description).toBe('Instalaciones eléctricas y reparaciones en el día.')
-    expect(String(meta.alternates?.canonical)).toBe('/p/ana-perez')
+    expect(String(meta.alternates?.canonical)).toBe('/ana-perez')
     expect(JSON.stringify(meta.openGraph)).toContain(
       'https://res.cloudinary.com/demo/image/upload/foto-1.jpg',
     )
