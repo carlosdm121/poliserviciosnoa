@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
 
-import { env } from '@/lib/env'
 import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
 import { ipHasheada } from '@/lib/peticion'
-import { rateLimit } from '@/lib/ratelimit'
+import { pingRedis, rateLimit } from '@/lib/ratelimit'
 import { saludMercadoPago } from '@/lib/mp/health'
 
 /**
@@ -28,17 +27,7 @@ async function saludBaseDeDatos(): Promise<'ok' | 'error'> {
 }
 
 async function saludUpstash(): Promise<'ok' | 'error'> {
-  if (!env.upstash.redisUrl || !env.upstash.redisToken) return 'ok'
-
-  try {
-    const respuesta = await fetch(`${env.upstash.redisUrl}/ping`, {
-      headers: { Authorization: `Bearer ${env.upstash.redisToken}` },
-    })
-
-    return respuesta.ok ? 'ok' : 'error'
-  } catch {
-    return 'error'
-  }
+  return (await pingRedis()) ? 'ok' : 'error'
 }
 
 export const dynamic = 'force-dynamic'

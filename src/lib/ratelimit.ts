@@ -56,6 +56,26 @@ export function hayRedis(): boolean {
   return Boolean(env.upstash.redisUrl && env.upstash.redisToken)
 }
 
+/**
+ * Ping real a Redis, para el endpoint de salud.
+ *
+ * Usa el mismo cliente que el rate limiter y no una URL armada a mano: así el
+ * chequeo falla exactamente cuando falla el límite, y no por una barra de más.
+ */
+export async function pingRedis(): Promise<boolean> {
+  if (!hayRedis()) return true
+
+  const redis = clienteRedis(env.upstash.redisUrl, env.upstash.redisToken)
+  if (!redis) return true
+
+  try {
+    await redis.ping()
+    return true
+  } catch {
+    return false
+  }
+}
+
 export type ResultadoLimite = {
   /** ¿Se superó el límite? */
   limitado: boolean
