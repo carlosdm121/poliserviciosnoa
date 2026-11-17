@@ -4,6 +4,9 @@ import { Suspense } from 'react'
 
 import { FormularioLogin } from '@/components/auth/FormularioLogin'
 
+// Render por request: si se prerenderiza, Next no inyecta el nonce de la CSP.
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Entrar',
   robots: { index: false, follow: true },

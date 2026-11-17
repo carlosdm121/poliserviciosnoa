@@ -3,6 +3,9 @@ import Link from 'next/link'
 
 import { FormularioRegistro } from '@/components/registro/FormularioRegistro'
 
+// Render por request: si se prerenderiza, Next no inyecta el nonce de la CSP.
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Crear cuenta',
   description: 'Publicá tu servicio en PoliserviciosNOA y recibí consultas por WhatsApp.',

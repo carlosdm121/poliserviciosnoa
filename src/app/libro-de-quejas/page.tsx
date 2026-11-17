@@ -4,6 +4,9 @@ import { FormularioReclamo } from '@/components/reclamos/FormularioReclamo'
 import { NOMBRE_PAGINA } from '@/lib/constantes'
 import { env } from '@/lib/env'
 
+// Render por request: si se prerenderiza, Next no inyecta el nonce de la CSP.
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Libro de quejas',
   description:

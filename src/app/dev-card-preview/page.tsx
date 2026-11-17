@@ -58,6 +58,9 @@ const empresa: ProfessionalCardData = {
   coversWholeProvince: false,
 }
 
+// Render por request: si se prerenderiza, Next no inyecta el nonce de la CSP.
+export const dynamic = 'force-dynamic'
+
 export default function Page(): React.ReactElement {
   return (
     <main className="mx-auto w-full max-w-[420px] space-y-4 p-4">
