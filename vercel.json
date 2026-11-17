@@ -9,19 +9,6 @@
       "schedule": "0 12 * * *"
     }
   ],
-    "redirects": [
-      {
-        "source": "/:path*",
-        "has": [
-          {
-            "type": "host",
-            "value": "www.poliserviciosnoa.com"
-          }
-        ],
-        "destination": "https://poliserviciosnoa.com/:path*",
-        "statusCode": 301
-      }
-    ],
   "headers": [
     {
       "source": "/:path*",
