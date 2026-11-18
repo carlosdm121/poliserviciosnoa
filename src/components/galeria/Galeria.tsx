@@ -7,6 +7,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import {
   BYTES_MAXIMOS,
+  comprimirEnCliente,
   esFormatoPermitido,
   LIMITE_IMAGENES,
   urlMiniatura,
@@ -88,12 +89,14 @@ export function Galeria({ imagenesIniciales }: Props): React.ReactElement {
       return
     }
 
-    if (archivo.size > BYTES_MAXIMOS) {
+    const comprimido = await comprimirEnCliente(archivo)
+
+    if (comprimido.size > BYTES_MAXIMOS) {
       setError('Esa foto pesa demasiado. Bajala a 5 MB o menos.')
       return
     }
 
-    await subir(archivo)
+    await subir(comprimido)
   }
 
   async function subir(archivo: File): Promise<void> {

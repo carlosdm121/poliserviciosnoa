@@ -146,3 +146,85 @@ export function urlMiniatura(url: string, ancho = 400): string {
 export function mensajeLimiteAlcanzado(): string {
   return `Ya tenés las ${LIMITE_IMAGENES} fotos. Borrá alguna para subir otra.`
 }
+
+/**
+ * Comprime la imagen en el cliente antes de subir.
+ *
+ * Las fotos de celular pesan 3-6 MB y la subida directa a Cloudinary desde una
+ * conexión móvil se corta antes de terminar (el `xhr.onerror` del XHR dispara
+ * "se cortó la conexión"). Redimensionar a 1600 px y comprimir a JPEG baja el
+ * archivo a ~300 KB sin pérdida visible en la galería.
+ *
+ * Es tolerante: si el navegador no puede decodificar la imagen o el JPEG
+ * comprimido sale más pesado que el original, devuelve el archivo original y
+ * deja que Cloudinary lo rechace con su propio mensaje.
+ *
+ * @param file Archivo original del input.
+ * @param maxWidth Ancho máximo en píxeles.
+ * @param calidad Calidad JPEG entre 0 y 1.
+ */
+export async function comprimirEnCliente(
+  file: File,
+  maxWidth: number = LADO_MAXIMO,
+  calidad: number = 0.8,
+): Promise<File> {
+  const img = new Image()
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+
+  const url = URL.createObjectURL(file)
+  img.src = url
+
+  return new Promise((resolve) => {
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+
+      if (!ctx) {
+        // El navegador no pudo decodificar la imagen: dejamos el original
+        // para que Cloudinary lo rechace con su propio mensaje.
+        resolve(file)
+        return
+      }
+
+      const { width: ancho, height: alto } = img
+      const proporcion = ancho / alto
+
+      const destinoAncho = arribaMaximo(ancho, maxWidth)
+      const destinoAlto = Math.round(destinoAncho / proporcion)
+
+      canvas.width = destinoAncho
+      canvas.height = destinoAlto
+      ctx.drawImage(img, 0, 0, destinoAncho, destinoAlto)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file)
+            return
+          }
+
+          // Un JPG comprimido que pesa más que el original es peor: no se sube.
+          if (blob.size >= file.size) {
+            resolve(file)
+            return
+          }
+
+          const base = file.name.replace(/\.[^.]*$/, '') || 'foto'
+          resolve(new File([blob], `${base}.jpg`, { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        calidad,
+      )
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(file)
+    }
+  })
+}
+
+/** `min(ancho, maximo)` redondeado, porque `canvas.width` exige un entero. */
+function arribaMaximo(ancho: number, maximo: number): number {
+  return Math.round(Math.min(ancho, maximo))
+}
