@@ -39,8 +39,11 @@ export function PanelNavbar(): React.ReactElement {
   const pathname = usePathname()
 
   return (
-    <nav aria-label="Secciones del panel" className="lg:border-r-[3px] lg:border-ink lg:pr-6">
-      <ul className="sin-barra flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+    <nav
+      aria-label="Secciones del panel"
+      className="min-w-0 max-w-full lg:border-r-[3px] lg:border-ink lg:pr-6"
+    >
+      <ul className="sin-barra flex max-w-full gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
         {SECCIONES.map((seccion) => {
           const activa = seccion.exacto ? pathname === seccion.href : pathname.startsWith(seccion.href)
 

@@ -165,50 +165,50 @@ export function mensajeLimiteAlcanzado(): string {
  */
 export async function comprimirEnCliente(
   file: File,
-  maxWidth: number = LADO_MAXIMO,
-  calidad: number = 0.8,
+  maxWidth: number = 800,  // Reducido de 1600 a 800 para archivos más pequeños
+  calidad: number = 0.6,  // Reducido de 0.8 a 0.6 para mayor compresión
 ): Promise<File> {
   const img = new Image()
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
-
+  
   const url = URL.createObjectURL(file)
   img.src = url
-
+  
   return new Promise((resolve) => {
     img.onload = () => {
       URL.revokeObjectURL(url)
-
+      
       if (!ctx) {
         // El navegador no pudo decodificar la imagen: dejamos el original
         // para que Cloudinary lo rechace con su propio mensaje.
         resolve(file)
         return
       }
-
+  
       const { width: ancho, height: alto } = img
       const proporcion = ancho / alto
-
+  
       const destinoAncho = arribaMaximo(ancho, maxWidth)
       const destinoAlto = Math.round(destinoAncho / proporcion)
-
+  
       canvas.width = destinoAncho
       canvas.height = destinoAlto
       ctx.drawImage(img, 0, 0, destinoAncho, destinoAlto)
-
+  
       canvas.toBlob(
         (blob) => {
           if (!blob) {
             resolve(file)
             return
           }
-
+  
           // Un JPG comprimido que pesa más que el original es peor: no se sube.
           if (blob.size >= file.size) {
             resolve(file)
             return
           }
-
+  
           const base = file.name.replace(/\.[^.]*$/, '') || 'foto'
           resolve(new File([blob], `${base}.jpg`, { type: 'image/jpeg' }))
         },
@@ -216,7 +216,7 @@ export async function comprimirEnCliente(
         calidad,
       )
     }
-
+  
     img.onerror = () => {
       URL.revokeObjectURL(url)
       resolve(file)

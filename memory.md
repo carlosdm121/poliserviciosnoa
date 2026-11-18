@@ -1046,3 +1046,50 @@ Spec: `docs/superpowers/specs/2026-11-12-ajustes-flujo-publicacion.md`.
 
 Pendiente: push (deploya en Vercel) y prueba de punta a punta del alta.
 
+---
+
+## Sesión 2026-11-12 — el email de verificación no llega (diagnosticado, sin corregir)
+
+**Estado: causa encontrada y confirmada contra la API de Resend. Se deja para
+después por decisión del dueño.** No se tocó código ni configuración.
+
+### Causa
+
+`EMAIL_FROM` apunta a `no-reply@poliserviciosnoa.com`. Ese dominio **no existe**:
+no tiene A, MX ni TXT en DNS. La cuenta de Resend solo tiene verificado
+`bellasindependientes.com`. Resend rechaza cualquier envío desde un dominio no
+verificado:
+
+```json
+{
+  "message": "The poliserviciosnoa.com domain is not verified. Please, add and verify your domain on https://resend.com/domains",
+  "statusCode": 403
+}
+```
+
+Evidencia: `GET https://api.resend.com/domains` devuelve solo
+`bellasindependientes.com` (verified) y `GET /emails` devuelve 0 envíos. El alta
+real en producción creó usuario y perfil, pero el mail nunca salió.
+
+### Por qué nadie se enteró
+
+`enviar()` devuelve `{ ok: false }` sin lanzar (decisión correcta: un fallo de
+email no debe tirar el alta). Pero `registro.ts` y `reenviarVerificacion`
+**ignoran ese resultado**: la cuenta queda creada y la UI dice que el enlace se
+mandó. El usuario esperó una hora sin señal de error.
+
+### Cuando se retome
+
+1. Verificar un dominio en Resend y cambiar `EMAIL_FROM` en Vercel. Opciones:
+   comprar `poliserviciosnoa.com` (~USD 10-15/año) o usar
+   `no-reply@bellasindependientes.com`, que ya está verificado en la cuenta.
+2. Redeplegar y pedir el reenvío en `/reenviar-verificacion`. El token viejo
+   vence a las 24 h; el reenvío genera uno nuevo.
+3. Arreglar el silencio: en `reenviarVerificacion`, chequear el resultado de
+   `enviarEmailVerificacion` y mostrar "no pudimos enviar" cuando `ok === false`.
+   En el alta, al menos loguear el resultado (hoy solo se loguea si lanza).
+
+Sin dominio verificado no hay forma de mandar a usuarios reales. El atajo
+`onboarding@resend.dev` solo entrega al email dueño de la cuenta de Resend y
+sirve únicamente para probar el circuito propio.
+

@@ -109,6 +109,7 @@ export function Galeria({ imagenesIniciales }: Props): React.ReactElement {
 
       xhr.open('POST', '/api/panel/galeria/subir')
       xhr.withCredentials = true
+      xhr.timeout = 120000
 
       xhr.upload.onprogress = (evento) => {
         if (evento.lengthComputable && evento.total > 0) {
@@ -121,8 +122,39 @@ export function Galeria({ imagenesIniciales }: Props): React.ReactElement {
       }
 
       xhr.onload = () => {
+        // 401/403 = no autenticado o sin perfil; el mensaje genérico no ayuda.
+        if (xhr.status === 401) {
+          setSubiendo(null)
+          setError('Tu sesión se cerró. Iniciá sesión de nuevo y probá.')
+          resolve()
+          return
+        }
+
+        if (xhr.status === 403) {
+          setSubiendo(null)
+          setError('No tenés permiso para subir fotos.')
+          resolve()
+          return
+        }
+
+        if (xhr.status === 413) {
+          setSubiendo(null)
+          setError('La foto pesa demasiado para el servidor. Bajala a menos de 4 MB.')
+          resolve()
+          return
+        }
+
         if (xhr.status < 200 || xhr.status >= 300) {
-          setError('No pudimos subir la foto. Probá de nuevo.')
+          let mensaje = 'No pudimos subir la foto. Probá de nuevo.'
+
+          try {
+            const cuerpo = JSON.parse(xhr.responseText) as { error?: string }
+            if (cuerpo.error) mensaje = cuerpo.error
+          } catch {
+            // No es JSON: dejamos el mensaje genérico.
+          }
+
+          setError(mensaje)
           setSubiendo(null)
           resolve()
           return
@@ -154,6 +186,12 @@ export function Galeria({ imagenesIniciales }: Props): React.ReactElement {
 
           resolve()
         })()
+      }
+
+      xhr.ontimeout = () => {
+        setSubiendo(null)
+        setError('La subida tardo demasiado. Probá de nuevo con una conexión más estable.')
+        resolve()
       }
 
       xhr.onerror = () => {
