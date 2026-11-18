@@ -1,4 +1,5 @@
 import { PaginaLegal } from '@/components/legales/PaginaLegal'
+import { WHATSAPP_PUBLICO } from '@/lib/constantes'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -8,7 +9,7 @@ export const metadata: Metadata = {
 }
 export const dynamic = 'force-dynamic'
 
-const ULTIMA_ACTUALIZACION = 'octubre de 2026'
+const ULTIMA_ACTUALIZACION = 'noviembre de 2026'
 
 const SECCIONES = [
   {
@@ -48,14 +49,23 @@ const SECCIONES = [
     ],
   },
   {
-    titulo: '6. Defensa del consumidor',
+    titulo: '6. Pagos y suscripción',
+    parrafos: [
+      'El pago de la suscripción debe hacerse desde una cuenta bancaria, tarjeta o billetera a nombre del titular del perfil. Si el perfil es de una empresa, la cuenta debe estar a nombre de esa empresa. No se aceptan pagos desde cuentas de otra persona.',
+      'Si el pago se realiza desde una cuenta ajena, el proveedor de pagos lo rechaza automáticamente y el dinero no se devuelve. La plataforma no reintegra pagos rechazados por ese motivo.',
+      `Después de pagar, es obligatorio enviar el comprobante al WhatsApp ${WHATSAPP_PUBLICO}. Sin excepción.`,
+      'La suscripción se renueva automáticamente cada mes y puede cancelarse desde el panel en cualquier momento.',
+    ],
+  },
+  {
+    titulo: '7. Defensa del consumidor',
     parrafos: [
       'Como cliente, tenés derecho a recibir la información clara del profesional antes de contratar y a reclamar si no se presentó o si el servicio no se ajustó a lo acordado.',
       'Desde el perfil del profesional podés abrir un reclamo si ya lo contactaste por WhatsApp. El equipo de la plataforma lo revisa y, si se acumulan varios reclamos validados, el perfil puede ser suspendido.',
     ],
   },
   {
-    titulo: '7. Jurisdicción',
+    titulo: '8. Jurisdicción',
     parrafos: [
       'Estos términos se rigen por las leyes de la República Argentina. Cualquier controversia derivada del uso de la plataforma se somete a la jurisdicción de los tribunales de la provincia de Tucumán, con renuncia a cualquier otro fuero.',
     ],
@@ -68,6 +78,7 @@ const PUNTOS_ABOGADO = [
   'Procedimiento y plazos para la suspensión de perfiles y el derecho de descargo del profesional.',
   'Validez y alcance de la cláusula de jurisdicción de Tucumán para contratos celebrados entre usuarios de distintas provincias.',
   'Cumplimiento con la Ley de Defensa del Consumidor (Ley 24.240) y con la normativa de comercio electrónico aplicable.',
+  'Alcance legal de la cláusula de no devolución cuando el pago se realiza desde una cuenta ajena.',
 ]
 
 export default function TerminosPage(): React.ReactElement {

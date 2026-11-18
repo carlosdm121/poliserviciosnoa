@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import Link from 'next/link'
 
 import { authOptions } from '@/lib/auth'
+import { WHATSAPP_PUBLICO, enlaceComprobantePago } from '@/lib/constantes'
 import { formatArs } from '@/lib/dinero'
 import { prisma } from '@/lib/prisma'
 import { PanelNavbar } from '@/components/panel/PanelNavbar'
@@ -86,6 +87,32 @@ export default async function PaginaResultado(): Promise<React.ReactElement> {
                 Ir a mi suscripción
               </Link>
             </div>
+          </div>
+
+          <div className="tarjeta border-[3px] border-ink p-6">
+            <p className="etiqueta">Obligatorio</p>
+            <h2 className="mt-3 text-xl font-black uppercase">Enviá el comprobante de pago</h2>
+            <p className="mt-3 max-w-prose leading-relaxed">
+              Mandanos el comprobante al WhatsApp{' '}
+              <a
+                href={enlaceComprobantePago()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-black underline underline-offset-2"
+              >
+                {WHATSAPP_PUBLICO}
+              </a>
+              . Sin excepción.
+            </p>
+
+            <a
+              href={enlaceComprobantePago()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-oscuro mt-6 inline-block"
+            >
+              Enviar comprobante por WhatsApp
+            </a>
           </div>
         </div>
       </div>

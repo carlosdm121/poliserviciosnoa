@@ -4,14 +4,19 @@ import { useState, useEffect } from 'react'
 
 import Image from 'next/image'
 
+import { WHATSAPP_PUBLICO } from '@/lib/constantes'
+
 /**
  * Modo de respaldo: link fijo + QR de Mercado Pago.
  *
  * Se muestra solo cuando NEXT_PUBLIC_MP_FALLBACK_MODE === '1'.
  * No interfiere con el flujo automático de Preapproval (webhook + suscripción mensual).
  * El profesional paga una vez, envía comprobante por WhatsApp, admin activa manual.
+ *
+ * `puedePagar` viene del formulario de arriba: el pago manual también exige
+ * aceptar que la cuenta sea del titular y que se envíe el comprobante.
  */
-export function FallbackPago(): React.ReactElement | null {
+export function FallbackPago({ puedePagar }: { puedePagar: boolean }): React.ReactElement | null {
   const [habilitado, setHabilitado] = useState(false)
   const [link, setLink] = useState('')
   const [qrUrl, setQrUrl] = useState('')
@@ -42,17 +47,24 @@ export function FallbackPago(): React.ReactElement | null {
 
       <p className="mt-3 max-w-prose leading-relaxed">
         Si preferís pagar la suscripción una sola vez con un link fijo o escaneando un QR, usá esta opción.
-        Después de pagar, envianos el comprobante por WhatsApp al <strong>+54 9 381 384 5345</strong> y activamos tu perfil a mano.
+        Después de pagar, envianos el comprobante por WhatsApp al <strong>{WHATSAPP_PUBLICO}</strong> y activamos tu perfil a mano.
       </p>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
         <button
           type="button"
           onClick={abrirLink}
-          className="btn-oscuro min-h-[48px] text-base font-black uppercase tracking-wide"
+          disabled={!puedePagar}
+          className="btn-oscuro min-h-[48px] text-base font-black uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40"
         >
           Pagar con link
         </button>
+
+        {!puedePagar && (
+          <p className="text-sm font-bold">
+            Aceptá las dos casillas de arriba para habilitar el pago.
+          </p>
+        )}
 
         <div className="flex items-center gap-3 sm:ml-auto">
           <Image
@@ -86,7 +98,7 @@ export function FallbackPago(): React.ReactElement | null {
           </li>
           <li className="flex gap-2">
             <span aria-hidden="true" className="font-black text-noa-blue">4.</span>
-            <span>Enviá el comprobante por WhatsApp al <strong>+54 9 381 384 5345</strong> con tu nombre y rubro.</span>
+            <span>Enviá el comprobante por WhatsApp al <strong>{WHATSAPP_PUBLICO}</strong> con tu nombre y rubro. Sin excepción.</span>
           </li>
           <li className="flex gap-2">
             <span aria-hidden="true" className="font-black text-noa-blue">5.</span>

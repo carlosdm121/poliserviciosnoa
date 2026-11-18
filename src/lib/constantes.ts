@@ -126,3 +126,17 @@ export const MENSAJE_CONTACTO =
 export function enlaceWhatsApp(numero: string): string {
   return `https://wa.me/${numero}?text=${encodeURIComponent(MENSAJE_CONTACTO)}`
 }
+
+/**
+ * Número público de WhatsApp que figura en el sitio.
+ *
+ * Se usa para el aviso de pago: el comprobante se manda ahí, sin excepción.
+ */
+export const WHATSAPP_PUBLICO = '+54 9 381 384 5345'
+
+/** Enlace para enviar el comprobante de pago, con el mensaje ya escrito. */
+export function enlaceComprobantePago(): string {
+  const numero = WHATSAPP_PUBLICO.replace(/\D/g, '')
+
+  return `https://wa.me/${numero}?text=${encodeURIComponent('Hola, envío el comprobante de pago de mi suscripción en PoliserviciosNOA.')}`
+}

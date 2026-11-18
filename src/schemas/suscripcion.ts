@@ -155,6 +155,16 @@ export const aceptarTerminosSchema = z.object({
   aceptaTerminos: z.literal(true, {
     errorMap: () => ({ message: 'Necesitamos que aceptes las condiciones para cobrarte.' }),
   }),
+  /**
+   * Punto separado del resto de los términos: el pago tiene que salir de una
+   * cuenta a nombre del titular del perfil. Se exige explícitamente porque el
+   * proveedor rechaza el pago y el dinero no se devuelve.
+   */
+  aceptaCuentaTitular: z.literal(true, {
+    errorMap: () => ({
+      message: 'Necesitamos que aceptes que el pago debe salir de una cuenta a tu nombre.',
+    }),
+  }),
 })
 
 export type DatosFiscalesInput = z.input<typeof datosFiscalesSchema>

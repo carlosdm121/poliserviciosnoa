@@ -22,7 +22,7 @@ import { aNumero, ErrorMontoInvalido, formatArs, type Monto } from '@/lib/dinero
  *
  * Formato: `AAAA-MM-DD` de la fecha en que entró en vigor.
  */
-export const VERSION_TERMINOS = '2026-10-16'
+export const VERSION_TERMINOS = '2026-11-18'
 
 // ---------------------------------------------------------------------------
 // Requisitos para poder pagar

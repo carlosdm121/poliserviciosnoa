@@ -356,7 +356,7 @@ export async function crearSuscripcion(
 
   if (!aceptado.success) {
     return err(
-      'Necesitamos que aceptes las condiciones para cobrarte.',
+      aceptado.error.issues[0]?.message ?? 'Necesitamos que aceptes las condiciones para cobrarte.',
       ERROR_CODES.VALIDACION,
     )
   }

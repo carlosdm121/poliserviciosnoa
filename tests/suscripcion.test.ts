@@ -12,7 +12,7 @@ import {
   resumenCondiciones,
   VERSION_TERMINOS,
 } from '@/lib/suscripcion'
-import { CONDICIONES_IVA, CONDICION_IVA_VALORES, datosFiscalesSchema } from '@/schemas/suscripcion'
+import { CONDICIONES_IVA, CONDICION_IVA_VALORES, aceptarTerminosSchema, datosFiscalesSchema } from '@/schemas/suscripcion'
 
 /**
  * Lógica pura del módulo 2.3.
@@ -232,6 +232,21 @@ describe('texto de las condiciones', () => {
 describe('versión de los términos', () => {
   it('es una fecha, no un texto libre', () => {
     expect(VERSION_TERMINOS).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+describe('aceptación de las condiciones de pago', () => {
+  it('exige aceptar los términos y que la cuenta sea del titular', () => {
+    const base = { aceptaTerminos: true, aceptaCuentaTitular: true }
+
+    expect(aceptarTerminosSchema.safeParse(base).success).toBe(true)
+    expect(aceptarTerminosSchema.safeParse({ aceptaTerminos: true }).success).toBe(false)
+    expect(
+      aceptarTerminosSchema.safeParse({ aceptaTerminos: true, aceptaCuentaTitular: false }).success,
+    ).toBe(false)
+    expect(
+      aceptarTerminosSchema.safeParse({ aceptaTerminos: false, aceptaCuentaTitular: true }).success,
+    ).toBe(false)
   })
 })
 

@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import { suscribirme } from '@/app/actions/suscripcion'
 import { Button } from '@/components/ui/Button'
 import { FallbackPago } from '@/components/panel/FallbackPago'
+import { WHATSAPP_PUBLICO, enlaceComprobantePago } from '@/lib/constantes'
 
 /**
  * Botón de pago.
@@ -16,9 +17,10 @@ import { FallbackPago } from '@/components/panel/FallbackPago'
  * eso el botón no promete "ya estás suscrito" y el texto de carga es
  * "Abriendo el pago…".
  *
- * El botón está deshabilitado hasta que se aceptan las condiciones, y no al
- * revés: es más honesto que dejar apretar y que después aparezca un error que
- * el profesional no puede corregir desde ahí.
+ * Antes de pagar hay dos aceptaciones separadas: la de la cuenta a nombre del
+ * titular y la de los términos con renovación automática. El pago se rechaza si
+ * sale de una cuenta ajena, y el dinero no se devuelve, así que esa condición
+ * tiene su propio recuadro y su propia casilla.
  */
 export function FormularioPago({
   condiciones,
@@ -28,14 +30,17 @@ export function FormularioPago({
   /** Se muestra para que quede escrito qué versión se aceptó. */
   versionTerminos: string
 }): React.ReactElement {
-  const [aceptado, setAceptado] = useState(false)
+  const [aceptaCuenta, setAceptaCuenta] = useState(false)
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendiente, arrancarTransicion] = useTransition()
+
+  const puedePagar = aceptaCuenta && aceptaTerminos
 
   async function pagar(): Promise<void> {
     setError(null)
 
-    const resultado = await suscribirme({ aceptaTerminos: aceptado })
+    const resultado = await suscribirme({ aceptaTerminos, aceptaCuentaTitular: aceptaCuenta })
 
     if (!resultado.ok) {
       setError(resultado.error)
@@ -55,7 +60,37 @@ export function FormularioPago({
 
   return (
     <div className="tarjeta p-6">
-      <h2 className="text-xl font-black uppercase">Qué pasa cuando pagás</h2>
+      <div className="border-[3px] border-ink bg-noa-silver/30 p-5">
+        <h2 className="text-xl font-black uppercase">
+          El pago debe salir de una cuenta a tu nombre
+        </h2>
+
+        <p className="mt-3 max-w-prose leading-relaxed">
+          Pagá desde una cuenta bancaria, tarjeta o billetera <strong>a tu nombre</strong>. Si el
+          perfil es de una empresa, la cuenta tiene que estar a nombre de esa empresa. No se acepta
+          la cuenta de otra persona.
+        </p>
+
+        <p className="mt-3 max-w-prose font-bold leading-relaxed">
+          Si el pago se hace desde una cuenta ajena, se rechaza automáticamente y el dinero no se
+          devuelve.
+        </p>
+
+        <p className="mt-3 max-w-prose leading-relaxed">
+          Después de pagar, tenés que enviar el comprobante al WhatsApp{' '}
+          <a
+            href={enlaceComprobantePago()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-black underline underline-offset-2"
+          >
+            {WHATSAPP_PUBLICO}
+          </a>
+          . Sin excepción.
+        </p>
+      </div>
+
+      <h2 className="mt-8 text-xl font-black uppercase">Qué pasa cuando pagás</h2>
 
       <ul className="mt-4 space-y-3">
         {condiciones.map((linea) => (
@@ -71,13 +106,27 @@ export function FormularioPago({
       <label className="mt-8 flex cursor-pointer items-start gap-3">
         <input
           type="checkbox"
-          checked={aceptado}
-          onChange={(evento) => setAceptado(evento.target.checked)}
+          checked={aceptaCuenta}
+          onChange={(evento) => setAceptaCuenta(evento.target.checked)}
           className="mt-1 h-6 w-6 shrink-0 border-[3px] border-ink"
         />
         <span className="leading-relaxed">
-          Acepto las condiciones del servicio y que la renovación sea automática
-          (versión {versionTerminos}).
+          Entiendo y acepto: voy a pagar desde una cuenta a mi nombre y voy a enviar el comprobante
+          al WhatsApp indicado. Si uso una cuenta ajena, el pago se rechaza y el dinero no se
+          devuelve.
+        </span>
+      </label>
+
+      <label className="mt-5 flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={aceptaTerminos}
+          onChange={(evento) => setAceptaTerminos(evento.target.checked)}
+          className="mt-1 h-6 w-6 shrink-0 border-[3px] border-ink"
+        />
+        <span className="leading-relaxed">
+          Acepto las condiciones del servicio y que la renovación sea automática (versión{' '}
+          {versionTerminos}).
         </span>
       </label>
 
@@ -90,7 +139,7 @@ export function FormularioPago({
       <div className="mt-6">
         <Button
           variante="oscuro"
-          disabled={!aceptado}
+          disabled={!puedePagar}
           cargando={pendiente}
           textoCargando="Abriendo el pago…"
           onClick={() => arrancarTransicion(() => void pagar())}
@@ -99,8 +148,7 @@ export function FormularioPago({
         </Button>
       </div>
 
-      <FallbackPago />
-
+      <FallbackPago puedePagar={puedePagar} />
     </div>
   )
 }
