@@ -247,8 +247,8 @@ describe('versión de los términos', () => {
  * \"validando\" y el test pasaría probando el bug.
  */
 
-/** Persona humana: prefijo 30, dígito verificador 1. */
-const CUIT_PERSONA_VALIDO = '30123456781'
+/** Persona humana: prefijo 20, dígito verificador 6. */
+const CUIT_PERSONA_VALIDO = '20123456786'
 
 /** Empresa: prefijo 33, dígito verificador 0. */
 const CUIT_EMPRESA_VALIDO = '33123456780'
@@ -282,23 +282,23 @@ describe('datos fiscales', () => {
     ).toBe(true)
   })
 
-  it('acepta a una persona humana con DNI', () => {
+  it('rechaza un DNI de 8 dígitos: se pide CUIT o CUIL', () => {
     const resultado = datosFiscalesSchema.safeParse({ ...PERSONA, documento: '12345678' })
 
-    expect(resultado.success).toBe(true)
+    expect(resultado.success).toBe(false)
   })
 
   it('limpia los guiones del documento', () => {
     const resultado = datosFiscalesSchema.safeParse({
       ...PERSONA,
-      documento: '30-12345678-1',
+      documento: '20-12345678-6',
     })
 
     expect(resultado.success && resultado.data.documento).toBe(CUIT_PERSONA_VALIDO)
   })
 
   it('rechaza un CUIT con el dígito verificador incorrecto', () => {
-    const resultado = datosFiscalesSchema.safeParse({ ...PERSONA, documento: '30123456780' })
+    const resultado = datosFiscalesSchema.safeParse({ ...PERSONA, documento: '20123456780' })
 
     expect(resultado.success).toBe(false)
   })
@@ -325,6 +325,15 @@ describe('datos fiscales', () => {
 
   it('acepta una empresa con CUIT válido', () => {
     const resultado = datosFiscalesSchema.safeParse({ ...EMPRESA, documento: CUIT_EMPRESA_VALIDO })
+
+    expect(
+      resultado.success,
+      resultado.success ? '' : (resultado.error.issues[0]?.message ?? ''),
+    ).toBe(true)
+  })
+
+  it('acepta una empresa con CUIT que empieza con 30', () => {
+    const resultado = datosFiscalesSchema.safeParse({ ...EMPRESA, documento: '30123456781' })
 
     expect(
       resultado.success,

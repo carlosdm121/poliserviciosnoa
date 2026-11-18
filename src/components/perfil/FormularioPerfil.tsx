@@ -200,6 +200,12 @@ export function FormularioPerfil({
           </label>
         </div>
 
+        {tipo === 'PERSON' && (
+          <p className="mt-4 text-sm text-muted">
+            Si tenés empresa, elegí “Tengo empresa” y se habilitan la razón social y el CUIT.
+          </p>
+        )}
+
         <div className="mt-6 space-y-5">
           <Input
             label={tipo === 'COMPANY' ? 'Nombre que se muestra' : 'Tu nombre'}
@@ -241,7 +247,7 @@ export function FormularioPerfil({
               value={razonSocial}
               onChange={(e) => setRazonSocial(e.target.value)}
               maxLength={120}
-              ayuda="Como figura en el AFIP."
+              ayuda="El nombre legal como figura en AFIP. No es el CUIT."
             />
             <Input
               label="Nombre comercial"
@@ -256,7 +262,7 @@ export function FormularioPerfil({
               onChange={(e) => setCuit(e.target.value.replace(/\D/g, '').slice(0, 11))}
               inputMode="numeric"
               placeholder={cuit.length === 11 ? formatearCuit(cuit) : '34123456789'}
-              ayuda="Con 33 o 34 al principio."
+              ayuda="Con 30, 33 o 34 al principio."
             />
             <label className="block space-y-1">
               <span className="block text-sm font-bold">Tamaño del equipo</span>

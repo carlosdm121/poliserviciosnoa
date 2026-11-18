@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { digitoVerificador, validarCuit } from '@/lib/cuit'
+import { PREFIJOS_PERSONA_HUMANA, digitoVerificador, validarCuit } from '@/lib/cuit'
 
 /**
  * Validación de los datos fiscales.
@@ -9,17 +9,10 @@ import { digitoVerificador, validarCuit } from '@/lib/cuit'
  * marcar el campo sin hacer un request; en el servidor porque el cliente se
  * puede manipular y esta es la única frontera real.
  *
- * **Por qué hay un validador de CUIT propio y no `validarCuit` de `lib/cuit.ts`:**
- * ese módulo valida el CUIT de una **empresa** (obligatoriamente 33 o 34 al
- * principio) porque su único uso hasta ahora era el perfil de empresa. Acá hace
- * falta el CUIT de una persona humana (30) también, y el de monotributo es
- * justamente el caso más común del país. Reusar el de empresa rechazaría a la
- * mitad de los profesionales. Lo que sí se reusa es `digitoVerificador`, que es
- * el algoritmo y no la política.
+ * El documento es siempre CUIT o CUIL de 11 dígitos: no se acepta DNI. Para
+ * personas humanas se valida con los prefijos 20, 23, 24, 25, 26 y 27, y para
+ * empresas con `validarCuit`, que acepta 30, 33 y 34.
  */
-
-/** Prefijos válidos de CUIT: persona humana y las dos de persona jurídica. */
-const PREFIJOS_CUIT = ['30', '33', '34'] as const
 
 export const TIPO_PERSONA_FISCAL = {
   PERSONA_HUMANA: 'PERSONA_HUMANA',
@@ -53,20 +46,19 @@ export const CONDICIONES_IVA: Record<(typeof CONDICION_IVA_VALORES)[number], str
 }
 
 /**
- * Documento fiscal: CUIT/CUIL de 11 dígitos o DNI de 8.
+ * Documento fiscal: CUIT o CUIL de 11 dígitos.
  *
- * La forma se acepta siempre; lo que depende de `tipoPersona` se decide en el
- * `superRefine` del objeto completo, porque es una regla cruzada entre dos
- * campos y un `refine` por campo no la puede ver.
+ * La forma se acepta siempre; el prefijo se decide en el `superRefine` del
+ * objeto completo, porque es una regla cruzada con `tipoPersona` y un `refine`
+ * por campo no la puede ver.
  */
 const documentoSchema = z
   .string()
   .trim()
-  .min(1, 'Escribí tu CUIT o, si no tenés, tu DNI.')
+  .min(1, 'Escribí tu CUIT o CUIL.')
   .transform((valor) => valor.replace(/\D/g, ''))
-  .refine((valor) => valor.length === 11 || valor.length === 8, {
-    message:
-      'El CUIT tiene 11 dígitos (30-12345678-9) y el DNI tiene 8. Sin guiones son menos de lo que escribiste.',
+  .refine((valor) => valor.length === 11, {
+    message: 'El CUIT o CUIL tiene 11 dígitos. Va como 20-12345678-6.',
   })
 
 export const datosFiscalesSchema = z
@@ -106,11 +98,10 @@ export const datosFiscalesSchema = z
 
     if (esEmpresa) {
       /**
-       * Empresa sin excepción: CUIT con 33 o 34 y dígito verificador correcto.
-       *
-       * Acá se delega en `validarCuit`, que es el validador de empresa que ya
-       * existe y ya tiene el mensaje exacto para el caso más común: alguien
-       * pega su propio CUIT de persona humana en el casillero de empresa.
+       * Empresa sin excepción: CUIT con 30, 33 o 34 y dígito verificador
+       * correcto. Se delega en `validarCuit`, que tiene el mensaje exacto para
+       * el caso más común: alguien pega su CUIL de persona en el casillero de
+       * empresa.
        */
       const resultado = validarCuit(documento)
 
@@ -120,7 +111,7 @@ export const datosFiscalesSchema = z
           path: ['documento'],
           message:
             resultado.error ??
-            'El CUIT de una empresa tiene que empezar con 33 o 34 y el último dígito es el verificador.',
+            'El CUIT de una empresa tiene que empezar con 30, 33 o 34 y el último dígito es el verificador.',
         })
       }
 
@@ -128,42 +119,29 @@ export const datosFiscalesSchema = z
     }
 
     /**
-     * Persona humana: CUIT (30) o DNI de 8 dígitos.
-     *
-     * El CUIT se valida con el dígito verificador como cualquier CUIT, pero se
-     * acepta el prefijo 30 que `validarCuit` rechaza. El DNI no tiene dígito
-     * verificador: son 8 dígitos y nada más, así que solo se verifica el largo.
+     * Persona humana: CUIL/CUIT con prefijo 20, 23, 24, 25, 26 o 27 y dígito
+     * verificador correcto.
      */
-    if (documento.length === 11) {
-      const prefijo = documento.slice(0, 2)
+    const prefijo = documento.slice(0, 2)
 
-      if (!(PREFIJOS_CUIT as readonly string[]).includes(prefijo)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['documento'],
-          message: 'Un CUIT tiene que empezar con 30 (persona), 33 o 34 (empresa).',
-        })
-        return
-      }
-
-      const esperado = digitoVerificador(documento)
-
-      if (esperado === null || esperado !== Number(documento[10])) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['documento'],
-          message: `El CUIT no es válido. El último dígito debería ser ${esperado ?? '?'}, no ${documento[10]}.`,
-        })
-      }
+    if (!(PREFIJOS_PERSONA_HUMANA as readonly string[]).includes(prefijo)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['documento'],
+        message: 'El CUIL de una persona tiene que empezar con 20, 23, 24, 25, 26 o 27.',
+      })
+      return
     }
 
-    /**
-     * `CONSUMIDOR_FINAL` con DNI tiene un problema que no se puede dejar pasar en
-     * silencio: a un consumidor final sin CUIT no se le puede emitir una factura
-     * A, y el contador lo va a rechazar. Se permite igual —el profesional decide
-     * cómo factura— y queda anotado acá para que la interfaz pueda advertirlo.
-     * El módulo de facturación (2.5) es el que tiene que manejar el caso.
-     */
+    const esperado = digitoVerificador(documento)
+
+    if (esperado === null || esperado !== Number(documento[10])) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['documento'],
+        message: `El CUIL no es válido. El último dígito debería ser ${esperado ?? '?'}, no ${documento[10]}.`,
+      })
+    }
   })
 
 /**

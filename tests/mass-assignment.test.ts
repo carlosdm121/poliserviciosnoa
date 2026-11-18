@@ -53,7 +53,7 @@ describe('punto 8 — mass assignment bloqueado con .strict()', () => {
     const resultado = datosFiscalesSchema.safeParse({
       tipoPersona: 'PERSONA_HUMANA',
       nombreORazonSocial: 'Juan Pérez',
-      documento: '12345678',
+      documento: '20123456786',
       condicionIva: 'RESPONSABLE_MONOTRIBUTO',
       domicilioFiscal: 'Calle Falsa 123, San Miguel de Tucumán',
       campoExtra: 'no debería pasar',
@@ -66,7 +66,7 @@ describe('punto 8 — mass assignment bloqueado con .strict()', () => {
     const resultado = datosFiscalesSchema.safeParse({
       tipoPersona: 'PERSONA_HUMANA',
       nombreORazonSocial: 'Juan Pérez',
-      documento: '12345678',
+      documento: '20123456786',
       condicionIva: 'RESPONSABLE_MONOTRIBUTO',
       domicilioFiscal: 'Calle Falsa 123, San Miguel de Tucumán',
     })

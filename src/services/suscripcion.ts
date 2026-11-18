@@ -283,10 +283,8 @@ export async function guardarDatosFiscales(
   /**
    * El hash lleva el tipo de persona adelante.
    *
-   * Sin eso, el CUIT `30123456789` de una persona y el DNI `12345678` no se
-   * pisarían (tienen largo distinto) pero dos tipos distintos con el mismo
-   * número sí podrían. Prefijar es lo que hace único al par, que es lo que
-   * importa.
+   * Así el mismo número no se confunde entre una persona y una empresa, aunque
+   * hoy los prefijos ya los separan.
    */
   const hash = hashValor(`${datos.tipoPersona}:${datos.documento}`)
 

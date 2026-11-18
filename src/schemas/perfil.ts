@@ -77,7 +77,9 @@ const cuitSchema = z
 /** Datos de empresa. Todos opcionales: se piden solo si el tipo es COMPANY. */
 const empresaSchema = z
   .object({
-    companyName: z.string().trim().min(2, 'Escribí la razón social.').max(120).optional(),
+    // El formulario manda `companyName: ''` cuando el perfil es de persona; la
+    // exigencia para empresas la aplica el `superRefine` de abajo.
+    companyName: z.string().trim().max(120, 'La razón social es demasiado larga.').optional(),
     tradeName: z.string().trim().max(120).optional(),
     cuit: cuitSchema.optional().or(z.literal('')),
     teamSize: teamSizeSchema.optional(),

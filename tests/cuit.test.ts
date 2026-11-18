@@ -17,8 +17,6 @@ describe('validarCuit', () => {
     for (const prefijo of ['3345678901', '3412345678', '3023456789']) {
       const cuit = `${prefijo}${digitoVerificador(`${prefijo}0`)}`
 
-      if (cuit.startsWith('30')) continue
-
       const resultado = validarCuit(cuit)
 
       expect(resultado.ok).toBe(true)
@@ -35,14 +33,13 @@ describe('validarCuit', () => {
     expect(validarCuit('34 12345678 9').ok).toBe(validarCuit(cuit).ok)
   })
 
-  it('rechaza el prefijo 30 (persona humana) en un perfil de empresa', () => {
-    const resultado = validarCuit('30645789098')
+  it('acepta el prefijo 30, que también es de empresa', () => {
+    const resultado = validarCuit('30123456781')
 
-    expect(resultado.ok).toBe(false)
-    expect(resultado.error).toContain('persona humana')
+    expect(resultado.ok).toBe(true)
   })
 
-  it('rechaza prefijos que no son de empresa ni de persona', () => {
+  it('rechaza prefijos de persona humana en un perfil de empresa', () => {
     expect(validarCuit('20456789094').ok).toBe(false)
     expect(validarCuit('27556789095').ok).toBe(false)
   })
@@ -146,7 +143,8 @@ it('siempre devuelve un dígito entre 0 y 9', () => {
 
 describe('esCuitEmpresa', () => {
   it('es booleano y coincide con validarCuit', () => {
-    expect(esCuitEmpresa('30645789098')).toBe(false)
+    expect(esCuitEmpresa('30645789098')).toBe(true)
+    expect(esCuitEmpresa('20123456786')).toBe(false)
     expect(esCuitEmpresa('basura')).toBe(false)
   })
 })

@@ -3,16 +3,17 @@
  *
  * Módulo sin dependencias: se usa en el formulario y en el servidor.
  *
- * El CUIT es 11 dígitos: los dos primeros son el tipo de persona jurídica y los
+ * El CUIT es 11 dígitos: los dos primeros indican el tipo de persona y los
  * nueve siguientes son el número, con un dígito verificador al final calculado
- * módulo 11. El prefijo 30 es persona humana, 33 y 34 son personas jurídicas.
- *
- * Para el portal solo interesan 33 y 34: una empresa que se registra como
- * persona humana (30) no puede ser una empresa con equipo.
+ * módulo 11. Las personas jurídicas usan 30, 33 o 34; las personas humanas
+ * usan 20, 23, 24, 25, 26 o 27.
  */
 
-/** Prefijos de persona jurídica. El 30 es persona humana y no se acepta acá. */
-const PREFIJOS_PERSONA_JURIDICA = ['33', '34'] as const
+/** Prefijos de persona jurídica: 30, 33 y 34. */
+const PREFIJOS_PERSONA_JURIDICA = ['30', '33', '34'] as const
+
+/** Prefijos de persona humana (CUIL): 20, 23, 24, 25, 26 y 27. */
+export const PREFIJOS_PERSONA_HUMANA = ['20', '23', '24', '25', '26', '27'] as const
 
 /** Pesos del algoritmo módulo 11 con multiplicadores cíclicos 2..7. */
 const PESOS = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2] as const
@@ -62,10 +63,9 @@ export function validarCuit(entrada: string): ResultadoCuit {
     return {
       ok: false,
       cuit: null,
-      error:
-        prefijo === '30'
-          ? 'Ese CUIT es de una persona humana. Si sos empresa, usá el CUIT con 33 o 34 al principio.'
-          : 'El CUIT tiene que empezar con 33 o 34 si sos una empresa.',
+      error: (PREFIJOS_PERSONA_HUMANA as readonly string[]).includes(prefijo)
+        ? 'Ese CUIT es de una persona humana (CUIL). Si sos empresa, usá el CUIT con 30, 33 o 34 al principio.'
+        : 'El CUIT de una empresa tiene que empezar con 30, 33 o 34.',
     }
   }
 

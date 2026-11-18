@@ -118,18 +118,23 @@ export function FormularioDatosFiscales({
           value={nombre}
           onChange={(evento) => setNombre(evento.target.value)}
           autoComplete="name"
+          ayuda={
+            tipoPersona === 'EMPRESA'
+              ? 'El nombre legal como figura en AFIP. No es el CUIT.'
+              : undefined
+          }
           error={errores.nombreORazonSocial}
         />
 
         <Input
-          label={tipoPersona === 'EMPRESA' ? 'CUIT de la empresa' : 'CUIT o DNI'}
+          label={tipoPersona === 'EMPRESA' ? 'CUIT de la empresa' : 'CUIT o CUIL'}
           value={documento}
           onChange={(evento) => setDocumento(evento.target.value)}
           inputMode="numeric"
           ayuda={
             tipoPersona === 'EMPRESA'
-              ? '11 dígitos, empezando con 33 o 34. Va como 33-12345678-0.'
-              : 'Tu CUIT tiene 11 dígitos (30-12345678-1). Si no lo tenés, DNI de 8.'
+              ? '11 dígitos, empezando con 30, 33 o 34. Va como 30-12345678-1.'
+              : 'Tu CUIL tiene 11 dígitos (20-12345678-6).'
           }
           error={errores.documento}
         />

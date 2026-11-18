@@ -45,6 +45,21 @@ describe('perfilSchema', () => {
     expect(resultado.success).toBe(true)
   })
 
+  it('acepta una persona con los campos de empresa vacíos', () => {
+    // El formulario manda siempre el bloque `company`; en una persona va vacío.
+    const resultado = perfilSchema.safeParse(
+      con({
+        type: 'PERSON',
+        company: { companyName: '', tradeName: '', cuit: '', website: '' },
+      }),
+    )
+
+    expect(
+      resultado.success,
+      resultado.success ? '' : (resultado.error.issues[0]?.message ?? ''),
+    ).toBe(true)
+  })
+
   it('exige nombre y descripción con mínimo de caracteres', () => {
     expect(perfilSchema.safeParse(con({ name: 'A' })).success).toBe(false)
     expect(perfilSchema.safeParse(con({ description: 'Muy corto' })).success).toBe(false)
