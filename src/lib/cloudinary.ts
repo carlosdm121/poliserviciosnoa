@@ -198,8 +198,7 @@ export async function consultarRecurso(publicId: string): Promise<RecursoImagen 
 
   const endpoint =
     `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}` +
-    `/image/admin/${encodeURIComponent(publicId)}` +
-    `?api_key=${env.CLOUDINARY_API_KEY}`
+    `/resources/image/upload/${encodeURIComponent(publicId)}`
 
   const respuesta = await fetch(endpoint, {
     headers: { Authorization: `Basic ${credencialesBasic()}` },
