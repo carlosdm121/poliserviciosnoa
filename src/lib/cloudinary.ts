@@ -196,9 +196,13 @@ export async function consultarRecurso(publicId: string): Promise<RecursoImagen 
     return mockConsulta(publicId)
   }
 
+  // Cloudinary espera el `publicId` con las barras de carpeta como segmentos
+  // literal de la URL (el SDK oficial lo interpola sin codificar). Si se
+  // codifica `/` como `%2F`, Cloudinary busca un recurso con ese literal en el
+  // nombre y devuelve 404, que este módulo traduce a "no existe".
   const endpoint =
     `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}` +
-    `/resources/image/upload/${encodeURIComponent(publicId)}`
+    `/resources/image/upload/${publicId}`
 
   const respuesta = await fetch(endpoint, {
     headers: { Authorization: `Basic ${credencialesBasic()}` },
