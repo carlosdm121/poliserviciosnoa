@@ -12,17 +12,16 @@ import {
   LIMITE_IMAGENES,
   urlMiniatura,
 } from '@/lib/imagen'
-import { confirmarImagen, guardarOrden, borrarImagen, pedirFirmaSubida } from '@/app/actions/galeria'
+import { confirmarImagen, guardarOrden, borrarImagen } from '@/app/actions/galeria'
 import type { ImagenGaleria } from '@/schemas/galeria'
 
 /**
  * Galería del panel.
  *
- * El flujo de subida es directo del navegador a Cloudinary, no a través del
- * servidor: mandar un archivo de 4 MB por la aplicación y volver a bajarlo es
- * el doble de ancho de banda, y en una conexión del interior eso es la
- * diferencia entre subir y abandonar. El servidor igual participa, pero solo
- * para firmar la subida y después para confirmar el `publicId`.
+ * El flujo de subida pasa por una ruta del propio sitio: el navegador sube el
+ * archivo a `/api/panel/galeria/subir` y el servidor hace el salto a Cloudinary.
+ * Así el XHR viaja por el mismo origen y no se corta en Android con datos
+ * móviles del interior. El servidor igual confirma el `publicId` después.
  *
  * Por eso el contador es optimista: la UI muestra el número que Cree que hay,
  * y si el servidor rechaza la undécima vuelve el número real. Un contador que
@@ -102,41 +101,69 @@ export function Galeria({ imagenesIniciales }: Props): React.ReactElement {
   async function subir(archivo: File): Promise<void> {
     setSubiendo({ nombre: archivo.name, progreso: 0, error: null })
 
-    try {
-      const firma = await pedirFirmaSubida()
+    return new Promise((resolve) => {
+      const formData = new FormData()
+      formData.append('file', archivo)
 
-      if (!firma.ok) {
-        setError(firma.error)
-        setSubiendo(null)
-        return
+      const xhr = new XMLHttpRequest()
+
+      xhr.open('POST', '/api/panel/galeria/subir')
+      xhr.withCredentials = true
+
+      xhr.upload.onprogress = (evento) => {
+        if (evento.lengthComputable && evento.total > 0) {
+          setSubiendo({
+            nombre: archivo.name,
+            progreso: Math.round((evento.loaded / evento.total) * 100),
+            error: null,
+          })
+        }
       }
 
-      const datos = await subirACloudinary(archivo, firma.data, (progreso) =>
-        setSubiendo({ nombre: archivo.name, progreso, error: null }),
-      )
+      xhr.onload = () => {
+        if (xhr.status < 200 || xhr.status >= 300) {
+          setError('No pudimos subir la foto. Probá de nuevo.')
+          setSubiendo(null)
+          resolve()
+          return
+        }
 
-      const confirmada = await confirmarImagen({ publicId: datos.publicId, url: datos.url })
+        void (async () => {
+          try {
+            const respuesta = JSON.parse(xhr.responseText) as { publicId: string; url: string }
+            const confirmada = await confirmarImagen({ publicId: respuesta.publicId, url: respuesta.url })
 
-      if (!confirmada.ok) {
-        // El archivo quedó subido en Cloudinary pero no entró a la galería.
-        // No es grave: el plan no factura por archivo y una imagen suelta en
-        // una carpeta que nadie ve no le cuesta nada a nadie.
-        setError(confirmada.error)
-        setSubiendo(null)
-        return
+            if (!confirmada.ok) {
+              setError(confirmada.error)
+              setSubiendo(null)
+              resolve()
+              return
+            }
+
+            setImagenes((previas) => [...previas, confirmada.data])
+            setSubiendo(null)
+            refrescar()
+          } catch (error: unknown) {
+            setError(
+              error instanceof Error
+                ? error.message
+                : 'Se cortó la conexión al subir la foto. Probá de nuevo.',
+            )
+            setSubiendo(null)
+          }
+
+          resolve()
+        })()
       }
 
-      setImagenes((previas) => [...previas, confirmada.data])
-      setSubiendo(null)
-      refrescar()
-    } catch (error: unknown) {
-      setSubiendo(null)
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'Se cortó la conexión al subir la foto. Probá de nuevo.',
-      )
-    }
+      xhr.onerror = () => {
+        setSubiendo(null)
+        setError('Se cortó la conexión al subir la foto. Probá de nuevo.')
+        resolve()
+      }
+
+      xhr.send(formData)
+    })
   }
 
   async function alBorrar(id: string): Promise<void> {
@@ -354,90 +381,4 @@ export function Galeria({ imagenesIniciales }: Props): React.ReactElement {
     </div>
   )
 }
-
-/**
- * Sube el archivo directo a Cloudinary con XMLHttpRequest y no con `fetch`.
- *
- * `fetch` no tiene forma de informar el progreso de subida: o se manda entero o
- * no se manda. En una conexión lenta del interior, sin barra de progreso el
- * profesional ve una pantalla congelada y cancela.
- *
- * `XMLHttpRequest.upload.onprogress` es la única API que da bytes enviados.
- */
-function subirACloudinary(
-  archivo: File,
-  firma: { url: string; apiKey: string; timestamp: number; signature: string; folder: string; allowedFormats: string; transformation: string },
-  alProgresar: (porcentaje: number) => void,
-): Promise<{ publicId: string; url: string }> {
-  return new Promise((resolve, reject) => {
-    const formulario = new FormData()
-
-    formulario.append('file', archivo)
-    formulario.append('api_key', firma.apiKey)
-    formulario.append('timestamp', String(firma.timestamp))
-    formulario.append('signature', firma.signature)
-    formulario.append('folder', firma.folder)
-    formulario.append('allowed_formats', firma.allowedFormats)
-    formulario.append('transformation', firma.transformation)
-
-    const xhr = new XMLHttpRequest()
-
-    xhr.open('POST', firma.url)
-
-    xhr.upload.onprogress = (evento) => {
-      if (evento.lengthComputable && evento.total > 0) {
-        alProgresar(Math.round((evento.loaded / evento.total) * 100))
-      }
-    }
-
-    xhr.onload = () => {
-      if (xhr.status < 200 || xhr.status >= 300) {
-        // El cuerpo del error de Cloudinary puede traer el motivo exacto
-        // ("File size too large", "Unsupported image format"), que es lo que
-        // hay que mostrarle al profesional y no un "algo falló".
-        reject(new Error(mensajeDeCloudinary(xhr.responseText, xhr.status)))
-        return
-      }
-
-      try {
-        const datos = JSON.parse(xhr.responseText) as { public_id?: string; secure_url?: string }
-
-        if (!datos.public_id || !datos.secure_url) {
-          reject(new Error('La foto se subió pero no pudimos identificarla. Probá de nuevo.'))
-          return
-        }
-
-        resolve({ publicId: datos.public_id, url: datos.secure_url })
-      } catch {
-        reject(new Error('No pudimos leer la respuesta de la subida. Probá de nuevo.'))
-      }
-    }
-
-    xhr.onerror = () => {
-      reject(new Error('Se cortó la conexión al subir la foto. Probá de nuevo.'))
-    }
-
-    xhr.onabort = () => {
-      reject(new Error('Se canceló la subida.'))
-    }
-
-    xhr.send(formulario)
-  })
-}
-
-/** Traduce el error de Cloudinary a algo que un profesional entienda. */
-function mensajeDeCloudinary(cuerpo: string, status: number): string {
-  if (status === 401 || status === 403) {
-    return 'No pudimos autorizar la subida. Recargá la página y probá de nuevo.'
-  }
-
-  if (cuerpo.includes('File size too large')) {
-    return `Esa foto pesa demasiado. Bajala a ${Math.round(BYTES_MAXIMOS / (1024 * 1024))} MB o menos.`
-  }
-
-  if (cuerpo.includes('Unsupported') || cuerpo.includes('format')) {
-    return 'Cloudinary no pudo procesar esa foto. Probá con un JPG.'
-  }
-
-  return 'No pudimos subir la foto. Probá de nuevo en un momento.'
-}
+ 

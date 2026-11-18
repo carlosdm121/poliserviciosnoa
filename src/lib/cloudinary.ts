@@ -116,6 +116,65 @@ export function firmarSubida(
 }
 
 /**
+ * Sube un archivo a Cloudinary desde el servidor.
+ *
+ * La subida directa desde el navegador fallaba en Android: el XHR al dominio
+ * de Cloudinary se cortaba en redes del interior aunque el archivo ya venga
+ * comprimido. Al pasar por una ruta propia, el navegador solo habla con el
+ * sitio y el servidor hace el salto al proveedor.
+ */
+export async function subirDesdeServidor(
+  archivo: Blob,
+  profileId: string,
+): Promise<{ publicId: string; url: string }> {
+  if (usarMock()) {
+    const publicId = `${carpetaDePerfil(profileId)}/mock-${Date.now()}`
+    registrarSubidaMock(publicId)
+    return { publicId, url: `https://res.cloudinary.com/demo/image/upload/${publicId}` }
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000)
+  const folder = carpetaDePerfil(profileId)
+
+  const params = {
+    allowed_formats: 'jpg,png,webp',
+    folder,
+    timestamp,
+    transformation: TRANSFORMACION_SUBIDA,
+  }
+
+  const signature = createHash('sha1')
+    .update(parametrosFirmados(params) + env.CLOUDINARY_API_SECRET)
+    .digest('hex')
+
+  const formulario = new FormData()
+  formulario.append('file', archivo, 'foto.jpg')
+  formulario.append('api_key', env.CLOUDINARY_API_KEY)
+  formulario.append('timestamp', String(timestamp))
+  formulario.append('signature', signature)
+  formulario.append('folder', folder)
+  formulario.append('allowed_formats', params.allowed_formats)
+  formulario.append('transformation', params.transformation)
+
+  const respuesta = await fetch(
+    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/image/upload`,
+    { method: 'POST', body: formulario },
+  )
+
+  if (!respuesta.ok) {
+    throw new ErrorCloudinary('No pudimos subir la foto. Probá de nuevo.')
+  }
+
+  const datos = (await respuesta.json()) as { public_id?: string; secure_url?: string }
+
+  if (!datos.public_id || !datos.secure_url) {
+    throw new ErrorCloudinary('La respuesta de Cloudinary no tiene lo esperado.')
+  }
+
+  return { publicId: datos.public_id, url: datos.secure_url }
+}
+
+/**
  * Consulta un recurso en la API de Cloudinary.
  *
  * Va contra la API y no contra la base a propósito. Es la única forma de
