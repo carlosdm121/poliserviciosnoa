@@ -12,7 +12,7 @@ import { aNumero, ErrorMontoInvalido, type Monto } from '@/lib/dinero'
 export function tipoCuponALabel(tipo: TipoCupon): string {
   switch (tipo) {
     case TipoCupon.MES_GRATIS:
-      return 'Primer mes gratis'
+      return 'Meses gratis'
     case TipoCupon.PORCENTAJE:
       return 'Descuento porcentual'
     case TipoCupon.MONTO_FIJO:
@@ -20,6 +20,20 @@ export function tipoCuponALabel(tipo: TipoCupon): string {
     default:
       return String(tipo)
   }
+}
+
+/**
+ * Meses sin cargo que otorga un cupón.
+ *
+ * Solo los otorga `MES_GRATIS`, y `valor` guarda la cantidad de meses (sin
+ * valor, un mes). No es un descuento sobre el precio: la suscripción queda
+ * activa y sin cobro hasta la fecha que calcula `sumarMeses`.
+ */
+export function mesesGratisDeCupon(tipo: TipoCupon, valor: number | null): number {
+  if (tipo !== TipoCupon.MES_GRATIS) return 0
+  if (valor !== null && !Number.isFinite(valor)) return 1
+
+  return Math.min(12, Math.max(1, Math.round(valor ?? 1)))
 }
 
 /**

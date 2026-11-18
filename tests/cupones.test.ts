@@ -4,6 +4,7 @@ import { TipoCupon } from '@prisma/client'
 
 import {
   calcularMontoConDescuento,
+  mesesGratisDeCupon,
   tipoCuponALabel,
   validarCupon,
   type CuponParaValidar,
@@ -182,9 +183,30 @@ describe('calcularMontoConDescuento', () => {
   })
 })
 
+describe('mesesGratisDeCupon', () => {
+  it('MES_GRATIS usa el valor como cantidad de meses', () => {
+    expect(mesesGratisDeCupon(TipoCupon.MES_GRATIS, 2)).toBe(2)
+  })
+
+  it('sin valor otorga un mes', () => {
+    expect(mesesGratisDeCupon(TipoCupon.MES_GRATIS, null)).toBe(1)
+  })
+
+  it('no otorga meses a los cupones de descuento', () => {
+    expect(mesesGratisDeCupon(TipoCupon.PORCENTAJE, 20)).toBe(0)
+    expect(mesesGratisDeCupon(TipoCupon.MONTO_FIJO, 5000)).toBe(0)
+  })
+
+  it('acota entre 1 y 12 meses', () => {
+    expect(mesesGratisDeCupon(TipoCupon.MES_GRATIS, 0)).toBe(1)
+    expect(mesesGratisDeCupon(TipoCupon.MES_GRATIS, 99)).toBe(12)
+    expect(mesesGratisDeCupon(TipoCupon.MES_GRATIS, Number.NaN)).toBe(1)
+  })
+})
+
 describe('tipoCuponALabel', () => {
   it('traduce cada tipo a su etiqueta de usuario', () => {
-    expect(tipoCuponALabel(TipoCupon.MES_GRATIS)).toBe('Primer mes gratis')
+    expect(tipoCuponALabel(TipoCupon.MES_GRATIS)).toBe('Meses gratis')
     expect(tipoCuponALabel(TipoCupon.PORCENTAJE)).toBe('Descuento porcentual')
     expect(tipoCuponALabel(TipoCupon.MONTO_FIJO)).toBe('Monto fijo')
   })

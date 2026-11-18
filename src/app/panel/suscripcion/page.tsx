@@ -83,6 +83,7 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
   ])
 
   const activa = suscripcion?.status === SubscriptionStatus.ACTIVE
+  const esPromo = activa && suscripcion?.mpPreapprovalId === null
   const requisitos = requisitosParaMostrar(faltantes)
 
   return (
@@ -179,21 +180,34 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
 
                 {/* El monto congelado, no el del plan. Es la diferencia entre lo
                     que se le promete a este profesional y lo que se está
-                    vendiendo hoy, y por eso van los dos. */}
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted">Tu precio</dt>
-                  <dd className="font-bold">{formatArs(suscripcion.planAmount)}/mes</dd>
-                </div>
+                    vendiendo hoy, y por eso van los dos. Durante una promo no
+                    se muestra: no hay precio que esté pagando. */}
+                {esPromo ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted">Promoción</dt>
+                    <dd className="font-bold">Meses gratis</dd>
+                  </div>
+                ) : (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted">Tu precio</dt>
+                    <dd className="font-bold">{formatArs(suscripcion.planAmount)}/mes</dd>
+                  </div>
+                )}
 
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted">
-                    {suscripcion.cancelAtPeriodEnd ? 'Vence' : 'Se renueva'}
+                    {esPromo ? 'Gratis hasta' : suscripcion.cancelAtPeriodEnd ? 'Vence' : 'Se renueva'}
                   </dt>
                   <dd className="font-bold">{fecha(suscripcion.currentPeriodEnd)}</dd>
                 </div>
               </dl>
 
-              {suscripcion.cancelAtPeriodEnd ? (
+              {esPromo ? (
+                <p className="exito mt-6">
+                  Tenés el servicio gratis hasta el {fecha(suscripcion.currentPeriodEnd)}. Después
+                  vas a poder activar tu suscripción desde esta misma pantalla.
+                </p>
+              ) : suscripcion.cancelAtPeriodEnd ? (
                 <p className="exito mt-6">
                   No se va a cobrar nada más. Tu perfil sigue apareciendo hasta el{' '}
                   {fecha(suscripcion.currentPeriodEnd)}.

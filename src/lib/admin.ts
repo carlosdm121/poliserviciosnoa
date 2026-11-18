@@ -148,7 +148,7 @@ export const SECCIONES_ADMIN: readonly Seccion[] = [
     key: 'lanzamiento',
     href: '/admin/lanzamiento',
     label: 'Lanzamiento',
-    descripcion: 'Cupones, socios fundadores y referidos.',
+    descripcion: 'Cupones y usos de la promoción de lanzamiento.',
     soloAdmin: true,
   },
 ] as const

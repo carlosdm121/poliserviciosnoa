@@ -3,20 +3,7 @@ import Link from 'next/link'
 import { Paginacion } from '@/components/admin/Paginacion'
 import { fechaHora } from '@/lib/admin'
 import { exigirAccesoPagina } from '@/lib/admin-auth'
-import {
-  contadorSociosFundadores,
-  listarCupones,
-  type FilaCupon,
-} from '@/services/cupones'
-
-/**
- * Código del cupón de socios fundadores.
- *
- * El admin lo crea desde este mismo panel con el código que elija. Este valor
- * es el que se consulta para mostrar el contador público; si cambia, hay que
- * actualizarlo acá y en cualquier lugar que lo lea.
- */
-const CUPON_SOCIOS_FUNDADORES = process.env.CUPON_SOCIOS_FUNDADORES ?? 'SOCIO_FUNDADOR'
+import { listarCupones, type FilaCupon } from '@/services/cupones'
 
 export const metadata = {
   title: 'Lanzamiento',
@@ -27,52 +14,23 @@ export const dynamic = 'force-dynamic'
 /**
  * Panel de lanzamiento.
  *
- * Métricas para los primeros días: cuántos socios fundadores quedan, cuántos
- * cupones se crearon y cuántos se usaron. Es de solo lectura; crear y editar
- * cupones se hace desde esta misma pantalla en un futuro cercano. Por ahora se
- * muestra la lista y el contador.
+ * Lista los cupones con su cupo, sus usos y su vigencia. Los códigos de la
+ * promoción de lanzamiento son los que empiezan con `PROMO-`: cada uno es de un
+ * solo uso y otorga 2 meses gratis, así que un código usado es un profesional
+ * que ya está publicado sin pagar.
  */
 export default async function PaginaLanzamiento() {
   await exigirAccesoPagina('lanzamiento')
-  const [{ filas: cupones, pagina }, socios] = await Promise.all([
-    listarCupones({ pagina: 1 }),
-    contadorSociosFundadores(CUPON_SOCIOS_FUNDADORES),
-  ])
+  const { filas: cupones, pagina } = await listarCupones({ pagina: 1 })
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-3xl font-black uppercase tracking-tight">Lanzamiento</h1>
       <p className="mt-2 text-muted">
-        Métricas de apertura: cupones, socios fundadores y referidos.
+        Métricas de apertura: cupones de la promoción y sus usos.
       </p>
 
       <section className="mt-8">
-        <h2 className="text-xl font-black uppercase">Socios fundadores</h2>
-        <p className="text-sm text-muted mb-4">
-          Los primeros {socios.cupoMaximo} profesionales que usen el cupón
-          <code className="font-mono">{CUPON_SOCIOS_FUNDADORES}</code> se llevan
-          el primer mes gratis y el precio congelado.
-        </p>
-        <div className="tarjeta p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="font-black">{socios.usados}</p>
-              <p className="text-sm text-muted">de {socios.cupoMaximo} cupos usados</p>
-            </div>
-            <div>
-              <p className="font-black text-green-900">{socios.restantes}</p>
-              <p className="text-sm text-muted">cupos restantes</p>
-            </div>
-          </div>
-          {socios.restantes === 0 && (
-            <p className="mt-3 text-sm text-red-900 font-bold">
-              Se agotaron los cupos de socio fundador.
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section className="mt-10">
         <h2 className="text-xl font-black uppercase">Cupones</h2>
         <p className="text-sm text-muted mb-4">
           Cupones de lanzamiento creados. Cada uno tiene un código, un cupo de
@@ -90,8 +48,8 @@ export default async function PaginaLanzamiento() {
                   <div>
                     <p className="font-black">{c.codigo}</p>
                     <p className="text-sm text-muted">
-                      {c.tipo} ·
-                      {c.valor !== null ? `${c.valor}%` : 'mes gratis'} ·
+                      {c.tipo}
+                      {c.valor !== null ? ` (${c.valor})` : ''} ·
                       {c.usosRestantes} / {c.cupoMaximoUsos} cupos ·
                       {fechaHora(c.vigenteDesde)}
                     </p>
@@ -117,8 +75,8 @@ export default async function PaginaLanzamiento() {
       </section>
 
       <p className="mt-10 text-xs text-muted">
-        Fuente: tabla `Cupon` y `CuponRedencion`. Un socio fundador es cualquier
-        perfil que canjeó un cupón de tipo MES_GRATIS.
+        Fuente: tablas `Cupon` y `CuponRedencion`. Los códigos `PROMO-` otorgan 2
+        meses gratis y son de un solo uso.
       </p>
     </div>
   )

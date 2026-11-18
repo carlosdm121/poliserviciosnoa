@@ -10,6 +10,7 @@ import {
   precioDeAlta,
   puedeSuscribirse,
   resumenCondiciones,
+  sumarMeses,
   VERSION_TERMINOS,
 } from '@/lib/suscripcion'
 import { CONDICIONES_IVA, CONDICION_IVA_VALORES, aceptarTerminosSchema, datosFiscalesSchema } from '@/schemas/suscripcion'
@@ -199,6 +200,26 @@ describe('fin del período', () => {
   })
 })
 
+describe('suma de meses', () => {
+  it('suma la cantidad pedida, no 30 días por mes', () => {
+    expect(sumarMeses(new Date(Date.UTC(2026, 2, 15, 12, 0, 0)), 2).toISOString()).toBe(
+      '2026-05-15T00:00:00.000Z',
+    )
+  })
+
+  it('recorta al último día cuando el mes destino es más corto', () => {
+    expect(sumarMeses(new Date(Date.UTC(2026, 11, 31)), 2).toISOString()).toBe(
+      '2027-02-28T00:00:00.000Z',
+    )
+  })
+
+  it('cruza febrero sin recortar cuando el destino tiene el mismo día', () => {
+    expect(sumarMeses(new Date(Date.UTC(2026, 0, 31)), 2).toISOString()).toBe(
+      '2026-03-31T00:00:00.000Z',
+    )
+  })
+})
+
 describe('fin de la gracia', () => {
   it('suma los días configurados', () => {
     const desde = new Date('2026-03-10T12:00:00.000Z')
@@ -236,17 +257,10 @@ describe('versión de los términos', () => {
 })
 
 describe('aceptación de las condiciones de pago', () => {
-  it('exige aceptar los términos y que la cuenta sea del titular', () => {
-    const base = { aceptaTerminos: true, aceptaCuentaTitular: true }
-
-    expect(aceptarTerminosSchema.safeParse(base).success).toBe(true)
-    expect(aceptarTerminosSchema.safeParse({ aceptaTerminos: true }).success).toBe(false)
-    expect(
-      aceptarTerminosSchema.safeParse({ aceptaTerminos: true, aceptaCuentaTitular: false }).success,
-    ).toBe(false)
-    expect(
-      aceptarTerminosSchema.safeParse({ aceptaTerminos: false, aceptaCuentaTitular: true }).success,
-    ).toBe(false)
+  it('exige aceptar los términos', () => {
+    expect(aceptarTerminosSchema.safeParse({ aceptaTerminos: true }).success).toBe(true)
+    expect(aceptarTerminosSchema.safeParse({ aceptaTerminos: false }).success).toBe(false)
+    expect(aceptarTerminosSchema.safeParse({}).success).toBe(false)
   })
 })
 

@@ -201,9 +201,9 @@ export function importeParaPasarela(monto: Monto): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Fin del período que se abre con un pago.
+ * Suma meses de calendario a una fecha.
  *
- * Es "el mismo día del mes siguiente", no "pago + 30 días". Con 30 días, un
+ * Es "el mismo día del mes destino", no "fecha + 30 días". Con 30 días, un
  * pago el 31 de enero termina el 2 de marzo y cada renovación se corre un día
  * más, hasta que en junio el perfil se despublica dos días antes de que el
  * cliente haya pagado su mes.
@@ -213,27 +213,33 @@ export function importeParaPasarela(monto: Monto): string {
  * abril) para que la suscripción no termine nunca en un día que no existe, que
  * en JavaScript se convertiría en el 2 o 3 del mes siguiente y dejaría al
  * profesional un día de más o de menos.
+ */
+export function sumarMeses(fecha: Date, meses: number): Date {
+  const anio = fecha.getUTCFullYear()
+  const mes = fecha.getUTCMonth()
+  const dia = fecha.getUTCDate()
+
+  /**
+   * Último día del mes destino.
+   *
+   * El día 0 del mes siguiente al destino es "el día anterior al primero", o
+   * sea el último del mes destino. Para el mes destino `mes + 1` eso es el día
+   * 0 de `mes + 2`.
+   */
+  const ultimoDia = new Date(Date.UTC(anio, mes + meses + 1, 0)).getUTCDate()
+
+  return new Date(Date.UTC(anio, mes + meses, Math.min(dia, ultimoDia)))
+}
+
+/**
+ * Fin del período que se abre con un pago.
  *
  * @param fechaPago Momento del pago aprobado.
  * @returns Instante en que termina el período pagado. El webhook (2.4) lo
  *   guarda en `currentPeriodEnd`.
  */
 export function finDePeriodo(fechaPago: Date): Date {
-  const anio = fechaPago.getUTCFullYear()
-  const mes = fechaPago.getUTCMonth()
-  const dia = fechaPago.getUTCDate()
-
-  /**
-   * Último día del mes siguiente.
-   *
-   * El día 0 del mes **dos meses** adelante: el día 0 es "el día anterior al
-   * primero", o sea el último del mes anterior. Con `mes + 1` se estaba
-   * calculando el último día del mes actual, que para un pago el 31 de enero
-   * daba 31 y el período terminaba el 3 de marzo.
-   */
-  const ultimoDia = new Date(Date.UTC(anio, mes + 2, 0)).getUTCDate()
-
-  return new Date(Date.UTC(anio, mes + 1, Math.min(dia, ultimoDia)))
+  return sumarMeses(fechaPago, 1)
 }
 
 /**

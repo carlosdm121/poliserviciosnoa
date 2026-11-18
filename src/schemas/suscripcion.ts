@@ -150,6 +150,11 @@ export const datosFiscalesSchema = z
  * `z.literal(true)` y no `z.boolean()`: un `true`Required que se pueda mandar
  * como `false` deja pasar el alta sin aceptación, y lo que se guarda después es
  * una fecha de aceptación que no ocurrió.
+ *
+ * La aceptación de la cuenta del titular no va como `literal(true)` porque un
+ * cupón de meses gratis no cobra: `crearSuscripcion` la exige solo cuando el
+ * alta va a terminar en un cobro. La regla vive en el servicio, que es el que
+ * sabe si hay pago, y no en el esquema, que solo ve el formulario.
  */
 export const aceptarTerminosSchema = z.object({
   aceptaTerminos: z.literal(true, {
@@ -160,11 +165,9 @@ export const aceptarTerminosSchema = z.object({
    * cuenta a nombre del titular del perfil. Se exige explícitamente porque el
    * proveedor rechaza el pago y el dinero no se devuelve.
    */
-  aceptaCuentaTitular: z.literal(true, {
-    errorMap: () => ({
-      message: 'Necesitamos que aceptes que el pago debe salir de una cuenta a tu nombre.',
-    }),
-  }),
+  aceptaCuentaTitular: z.boolean().optional().default(false),
+  /** Código promocional. Se normaliza a mayúsculas en el servicio. */
+  codigoCupon: z.string().trim().max(40).optional(),
 })
 
 export type DatosFiscalesInput = z.input<typeof datosFiscalesSchema>

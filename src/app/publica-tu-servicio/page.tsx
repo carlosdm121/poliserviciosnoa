@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
-import { MENSAJE_CONTACTO, NOMBRE_PAGINA } from '@/lib/constantes'
-import { contadorSociosFundadores, esSocioFundador } from '@/services/cupones'
+import { enlaceWhatsApp, NOMBRE_PAGINA } from '@/lib/constantes'
 import { getCurrentPlan } from '@/services/planes'
 
 /**
@@ -55,12 +54,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const dynamic = 'force-dynamic'
 
-/** Código del cupón de socios fundadores. */
-const CUPON_SOCIOS_FUNDADORES = process.env.CUPON_SOCIOS_FUNDADORES ?? 'SOCIO_FUNDADOR'
+/** Número público donde se piden los códigos de la promoción. */
+const WHATSAPP_PROMO = '5493813845345'
 
 export default async function PaginaPublicaTuServicio(): Promise<React.ReactElement> {
   const plan = await getCurrentPlan()
-  const socios = await contadorSociosFundadores(CUPON_SOCIOS_FUNDADORES)
 
   return (
     <>
@@ -163,15 +161,22 @@ export default async function PaginaPublicaTuServicio(): Promise<React.ReactElem
           {plan && (
             <div className="mt-10 border-t-[3px] border-paper/30 pt-8">
               <p className="text-sm font-bold uppercase tracking-widest mb-3">
-                ¿Ya sos socio fundador?
+                Promoción de lanzamiento
               </p>
               <p className="text-sm leading-relaxed opacity-90">
-                Los primeros {socios.cupoMaximo} profesionales usan el cupón{' '}
-                <code className="font-mono">{CUPON_SOCIOS_FUNDADORES}</code> y{' '}
-                {'quedan '}
-                <span className="font-black">{socios.restantes}</span>{' '}
-                cupos. Primer mes gratis y precio congelado para siempre.
+                Los primeros <span className="font-black">20</span> profesionales que publiquen su
+                servicio reciben un código para usar la plataforma{' '}
+                <span className="font-black">2 meses gratis</span>, sin pagar nada y sin dejar
+                tarjeta. El código es personal y se pide por WhatsApp.
               </p>
+              <a
+                href={enlaceWhatsApp(WHATSAPP_PROMO)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-block font-black underline underline-offset-4"
+              >
+                Pedir mi código
+              </a>
             </div>
           )}
         </div>
@@ -207,10 +212,11 @@ export default async function PaginaPublicaTuServicio(): Promise<React.ReactElem
             },
             {
               paso: '4',
-              titulo: 'Activá tu suscripción',
+              titulo: 'Activá tu servicio',
               texto:
-                'Pagás el primer mes y tu perfil aparece en las búsquedas de ' +
-                'tu zona y rubro.',
+                'Si tenés el código de lanzamiento, activás 2 meses gratis sin ' +
+                'pagar. Si no, pagás el primer mes y tu perfil aparece en las ' +
+                'búsquedas de tu zona y rubro.',
             },
           ].map((paso, i) => (
             <li key={i} className="flex flex-col sm:flex-row items-start gap-6">
@@ -305,13 +311,8 @@ export default async function PaginaPublicaTuServicio(): Promise<React.ReactElem
         <div className="border-[3px] border-paper p-8 sm:p-12 text-center">
           <h2 className="text-4xl font-black uppercase">¿Empezamos?</h2>
           <p className="mt-4 max-w-prose mx-auto text-lg leading-relaxed opacity-90">
-            Creá tu cuenta gratis, completá tu perfil y verificá tu WhatsApp.{' '}
-            {socios.restantes > 0 && (
-              <>
-                {' '}
-                Quedan <span className="font-black">{socios.restantes}</span> cupos de socio fundador.
-              </>
-            )}
+            Creá tu cuenta gratis, completá tu perfil y verificá tu WhatsApp. Los primeros 20
+            profesionales que publiquen reciben un código para 2 meses gratis.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
