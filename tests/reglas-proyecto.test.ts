@@ -63,15 +63,28 @@ function esPermitido(ruta: string): boolean {
   return RUTAS_PERMITIDAS.some((permitida) => relativa.endsWith(permitida))
 }
 
+/**
+ * Un solo paseo por disco para todo el archivo.
+ *
+ * Antes cada test volvía a recorrer `src/` y releer cada archivo; con la
+ * suite corriendo en paralelo esos paseos superaban los 5s de timeout y el
+ * archivo flaqueaba. Se llena una vez, en la importación, fuera del tiempo
+ * de los tests.
+ */
+const CONTENIDOS = (async (): Promise<Map<string, string>> => {
+  const archivos = await archivosTypeScript(SRC)
+  const pares = await Promise.all(
+    archivos.map(async (archivo) => [archivo, await readFile(archivo, 'utf8')] as const),
+  )
+  return new Map(pares)
+})()
+
 describe('isPublished tiene un solo dueño', () => {
   it('nadie lo escribe fuera de sincronizarPublicacion', async () => {
-    const archivos = await archivosTypeScript(SRC)
     const infractores: string[] = []
 
-    for (const archivo of archivos) {
+    for (const [archivo, contenido] of await CONTENIDOS) {
       if (esPermitido(archivo)) continue
-
-      const contenido = await readFile(archivo, 'utf8')
 
       // Se buscan escrituras, no menciones. `isPublished: true` dentro de un
       // `where` es una condición de lectura y está permitido; lo prohibido es
@@ -95,7 +108,7 @@ describe('isPublished tiene un solo dueño', () => {
   it('el predicado SQL y la función pura viven en el mismo archivo', async () => {
     // Si se separan, cambian uno y no el otro, y aparecen perfiles en la
     // búsqueda que no se pueden abrir.
-    const contenido = await readFile('src/services/publicacion.ts', 'utf8')
+    const contenido = (await CONTENIDOS).get(join(SRC, 'services/publicacion.ts'))
 
     expect(contenido).toContain('export function evaluarPublicacion')
     expect(contenido).toContain('export const CONDICION_PERFIL_PUBLICO')
@@ -145,15 +158,14 @@ function sinComentarios(contenido: string): string {
 
 describe('el precio no está hardcodeado', () => {
   it('no hay montos escritos en src/', async () => {
-    const archivos = await archivosTypeScript(SRC)
     const infractores: string[] = []
 
-    for (const archivo of archivos) {
+    for (const [archivo, contenido] of await CONTENIDOS) {
       const relativa = rutaRelativa(archivo)
 
       if (RUTAS_CON_MONTO_PERMITIDO.some((permitida) => relativa.endsWith(permitida))) continue
 
-      const codigo = sinComentarios(await readFile(archivo, 'utf8'))
+      const codigo = sinComentarios(contenido)
 
       for (const patron of MONTOS_PROHIBIDOS) {
         if (patron.test(codigo)) {
@@ -173,15 +185,14 @@ describe('el precio no está hardcodeado', () => {
   it('el formateador es el único que decide cómo se ve un monto', async () => {
     // Si otro archivo llama a Intl con 'es-AR' por su cuenta, el día que se
     // cambie el formato aparecen dos versiones distintas del mismo precio.
-    const archivos = await archivosTypeScript(SRC)
     const infractores: string[] = []
 
-    for (const archivo of archivos) {
+    for (const [archivo, contenido] of await CONTENIDOS) {
       const relativa = rutaRelativa(archivo)
 
       if (relativa.endsWith('src/lib/dinero.ts')) continue
 
-      const codigo = sinComentarios(await readFile(archivo, 'utf8'))
+      const codigo = sinComentarios(contenido)
 
       if (/Intl\.NumberFormat/.test(codigo)) infractores.push(relativa)
     }
@@ -196,15 +207,12 @@ describe('el precio no está hardcodeado', () => {
 
 describe('reglas de los datos personales', () => {
   it('no hay console.log sueltos en código de servidor', async () => {
-    const archivos = await archivosTypeScript(SRC)
     const infractores: string[] = []
 
-    for (const archivo of archivos) {
+    for (const [archivo, contenido] of await CONTENIDOS) {
       const relativa = rutaRelativa(archivo)
 
       if (relativa.endsWith('logger.ts')) continue
-
-      const contenido = await readFile(archivo, 'utf8')
 
       // Los componentes cliente pueden loguear; la regla es para el servidor.
       const inicio = contenido.trimStart()
@@ -245,15 +253,14 @@ describe('reglas de los datos personales', () => {
  */
 describe('la pasarela tiene un solo dueño', () => {
   it('nadie llama a la API de Mercado Pago fuera de lib/mp', async () => {
-    const archivos = await archivosTypeScript(SRC)
     const infractores: string[] = []
 
-    for (const archivo of archivos) {
+    for (const [archivo, contenido] of await CONTENIDOS) {
       const relativa = rutaRelativa(archivo)
 
       if (relativa.startsWith('src/lib/mp/')) continue
 
-      const codigo = sinComentarios(await readFile(archivo, 'utf8'))
+      const codigo = sinComentarios(contenido)
 
       if (/api\.mercadopago\.com|mercadopago\.com\/preapproval/.test(codigo)) {
         infractores.push(relativa)
@@ -268,15 +275,14 @@ describe('la pasarela tiene un solo dueño', () => {
   })
 
   it('el token de Mercado Pago no aparece fuera de lib/mp y lib/env', async () => {
-    const archivos = await archivosTypeScript(SRC)
     const infractores: string[] = []
 
-    for (const archivo of archivos) {
+    for (const [archivo, contenido] of await CONTENIDOS) {
       const relativa = rutaRelativa(archivo)
 
       if (relativa.startsWith('src/lib/mp/') || relativa === 'src/lib/env.ts') continue
 
-      const codigo = sinComentarios(await readFile(archivo, 'utf8'))
+      const codigo = sinComentarios(contenido)
 
       // La sola mención se permite en la instalación (`Bearer ${...}`). Lo que
       // no se permite es leer el valor de la variable en otro lado para armar
