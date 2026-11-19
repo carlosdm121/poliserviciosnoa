@@ -16,16 +16,11 @@
 :root {
   color-scheme: light;
 
-  --color-primary: #0A84FF;
-  --color-primary-dark: #0B5BD3;
+  /* Las únicas vars heredadas que siguen con uso: hero y banner.
+     El resto del sitio usa los tokens de tailwind.config.ts. */
   --color-navy: #05080F;
   --color-accent: #22D3EE;
-  --color-bg: #F4F7FB;
-  --color-border: #E5EAF2;
-  --color-text: #0B1220;
   --color-white: #FFFFFF;
-  --color-chip-bg: #FFFFFF;
-  --color-chip-border: #E5EAF2;
 }
 
 @layer base {
