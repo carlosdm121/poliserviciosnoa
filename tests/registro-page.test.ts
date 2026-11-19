@@ -18,8 +18,8 @@ describe('PaginaRegistro', () => {
         nombre: 'Oficios',
         icono: '🛠️',
         rubros: [
-          { id: 'r1', nombre: 'Electricista', requiereMatricula: true, etiquetaMatricula: 'Matrícula', subcategoria: [] },
-          { id: 'r2', nombre: 'Plomero', requiereMatricula: false, etiquetaMatricula: null, subcategoria: [{ id: 's1', nombre: 'Destapaciones' }] },
+          { id: 'r1', nombre: 'Electricista', requiereMatricula: true, etiquetaMatricula: 'Matrícula', subcategorias: [] },
+          { id: 'r2', nombre: 'Plomero', requiereMatricula: false, etiquetaMatricula: null, subcategorias: [{ id: 's1', nombre: 'Destapaciones' }] },
         ],
       },
     ]
