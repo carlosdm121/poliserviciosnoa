@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { guardarDatosPerfil } from '@/app/actions/perfil'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
+import { SelectorRubro } from '@/components/catalogo/SelectorRubro'
 import type { CiudadCatalogo, GrupoCatalogo } from '@/services/catalogo'
 import type { EditarPerfil } from '@/services/perfil'
 import { PROVINCIAS, PROVINCIAS_LISTA } from '@/lib/constantes'
@@ -503,72 +504,3 @@ export function FormularioPerfil({
   )
 }
 
-/**
- * Selector de rubro.
- *
- * Se muestra agrupado por grupo con todos los rubros desplegados, en vez de un
- * `<select>` con 57 opciones: nadie encuentra "Gas matriculado" en una lista
- * alfabética de 57 ítems, y las subcategorías dan la palabra exacta que la
- * gente busca.
- */
-function SelectorRubro({
-  etiqueta,
-  grupos,
-  valor,
-  onChange,
-  requerido = false,
-  excluir,
-  ayuda,
-}: {
-  etiqueta: string
-  grupos: GrupoCatalogo[]
-  valor: string
-  onChange: (id: string) => void
-  requerido?: boolean
-  excluir?: string
-  ayuda?: string
-}): React.ReactElement {
-  return (
-    <div>
-      <p className="text-sm font-bold">
-        {etiqueta} {requerido && <span aria-hidden="true">*</span>}
-      </p>
-      {ayuda && <p className="mt-1 text-sm text-muted">{ayuda}</p>}
-
-      <div className="mt-3 space-y-4">
-        {grupos.map((grupo) => {
-          const rubros = grupo.rubros.filter((rubro) => rubro.id !== excluir)
-
-          if (rubros.length === 0) return null
-
-          return (
-            <fieldset key={grupo.id}>
-              <legend className="text-xs font-black uppercase tracking-widest text-muted">
-                {grupo.nombre}
-              </legend>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {rubros.map((rubro) => (
-                  <label
-                    key={rubro.id}
-                    className={`cursor-pointer border-2 px-3 py-2 text-sm font-bold ${
-                      valor === rubro.id ? 'border-ink bg-ink text-paper' : 'border-ink'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={`rubro-${etiqueta}`}
-                      className="sr-only"
-                      checked={valor === rubro.id}
-                      onChange={() => onChange(rubro.id)}
-                    />
-                    {rubro.nombre}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )
-        })}
-      </div>
-    </div>
-  )
-}

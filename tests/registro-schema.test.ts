@@ -24,7 +24,13 @@ describe('registroProfesionalSchema — rubros', () => {
       ...base,
       primaryCategoryId: 'cat-1',
     })
+
     expect(result.success).toBe(true)
+
+    if (!result.success) {
+      throw new Error('expected success')
+    }
+
     expect(result.data.secondaryCategoryId).toBeUndefined()
   })
 

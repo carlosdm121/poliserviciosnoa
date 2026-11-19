@@ -5,9 +5,11 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 
 import { registrarProfesional } from '@/app/actions/registro'
+import { SelectorRubro } from '@/components/catalogo/SelectorRubro'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { normalizarWhatsapp } from '@/lib/phone'
+import type { GrupoCatalogo } from '@/services/catalogo'
 
 type Errores = Partial<Record<'name' | 'email' | 'password' | 'whatsapp' | 'form', string>>
 
@@ -22,9 +24,15 @@ type Errores = Partial<Record<'name' | 'email' | 'password' | 'whatsapp' | 'form
  * porque el usuario escribe "381 1234567" y no sabe que detrás queda
  * "5493811234567". Ver la transformación en `normalizarWhatsapp`.
  */
-export function FormularioRegistro(): React.ReactElement {
+export function FormularioRegistro({
+  grupos,
+}: {
+  grupos: GrupoCatalogo[]
+}): React.ReactElement {
   const [errores, setErrores] = useState<Errores>({})
   const [telefono, setTelefono] = useState('')
+  const [primaryCategoryId, setPrimaryCategoryId] = useState('')
+  const [secondaryCategoryId, setSecondaryCategoryId] = useState('')
   const [enviado, setEnviado] = useState(false)
   const [estaProcesando, iniciarTransicion] = useTransition()
 
@@ -51,9 +59,18 @@ export function FormularioRegistro(): React.ReactElement {
     const email = String(datos.get('email') ?? '')
     const password = String(datos.get('password') ?? '')
     const whatsapp = String(datos.get('whatsapp') ?? '')
+    const primary = datos.get('primaryCategoryId') ?? ''
+    const secondary = datos.get('secondaryCategoryId') ?? ''
 
     iniciarTransicion(async () => {
-      const resultado = await registrarProfesional({ name: nombre, email, password, whatsapp })
+      const resultado = await registrarProfesional({
+        name: nombre,
+        email,
+        password,
+        whatsapp,
+        primaryCategoryId: String(primary),
+        secondaryCategoryId: String(secondary) || undefined,
+      })
 
       if (resultado.ok) {
         // Iniciar sesión automáticamente después del registro. `signIn` maneja
@@ -146,6 +163,36 @@ export function FormularioRegistro(): React.ReactElement {
         }
       />
 
+      {/* Rubros principales y secundarios */}
+      <div className="mt-6 space-y-4">
+        <p className="text-sm font-bold">Rubro principal (obligatorio)</p>
+        <SelectorRubro
+          etiqueta="Rubro principal"
+          grupos={grupos}
+          valor={primaryCategoryId}
+          onChange={(id) => setPrimaryCategoryId(id)}
+          requerido
+          ayuda="Obligatorio: el rubro que aparecerá primero en las búsquedas"
+        />
+
+        <p className="mt-4 text-sm text-muted">
+          El rubro principal es el que se muestra primero en las búsquedas.
+        </p>
+      </div>
+
+      <p className="mt-4 text-sm text-muted">
+        Rubro secundario (opcional)
+      </p>
+      <SelectorRubro
+        etiqueta="Rubro secundario"
+        grupos={grupos}
+        valor={secondaryCategoryId}
+        onChange={(id) => setSecondaryCategoryId(id)}
+        requerido={false}
+        excluir={primaryCategoryId}
+        ayuda="Opcional: otro rubro en el que también trabajás."
+      />
+
       <Input
         label="Contraseña"
         name="password"
@@ -165,6 +212,17 @@ export function FormularioRegistro(): React.ReactElement {
       >
         Crear mi cuenta
       </Button>
+
+      <input
+        type="hidden"
+        name="primaryCategoryId"
+        value={primaryCategoryId}
+      />
+      <input
+        type="hidden"
+        name="secondaryCategoryId"
+        value={secondaryCategoryId || ''}
+      />
 
       <p className="text-sm text-muted">
         Al crear la cuenta aceptás nuestros{' '}

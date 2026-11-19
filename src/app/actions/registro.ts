@@ -60,7 +60,36 @@ export async function registrarProfesional(
     return err(primero?.message ?? 'Revisá los datos del formulario.', ERROR_CODES.VALIDACION)
   }
 
-  const { name, email, password, whatsapp } = parseado.data
+  const { name, email, password, whatsapp, primaryCategoryId, secondaryCategoryId } = parseado.data
+
+  /**
+   * Rubros elegidos en el alta. Validar contra la base antes de crear nada:
+   * un rubro inactivo o inexistente no debe dejar un perfil huérfano sin
+   * categorías. El secundario no puede repetir el primario (el schema ya lo
+   * fija, esto revalida contra la base por seguridad en la frontera real).
+   */
+  const rubrosSolicitados = [primaryCategoryId, secondaryCategoryId].filter(
+    (valor): valor is string => Boolean(valor),
+  )
+
+  const rubrosValidos = await prisma.category.findMany({
+    where: { id: { in: rubrosSolicitados }, isActive: true },
+    select: { id: true },
+  })
+
+  if (rubrosValidos.length !== new Set(rubrosSolicitados).size) {
+    return err(
+      'Alguno de los rubros no existe o está desactivado.',
+      ERROR_CODES.VALIDACION,
+    )
+  }
+
+  if (secondaryCategoryId && secondaryCategoryId === primaryCategoryId) {
+    return err(
+      'El rubro secundario tiene que ser distinto del principal.',
+      ERROR_CODES.VALIDACION,
+    )
+  }
 
   /**
    * Lista de bloqueo.
@@ -110,6 +139,14 @@ export async function registrarProfesional(
         // El alta nace sin aprobar. Con la bandera `requireManualApproval`
         // apagada eso no frena la publicación; con la bandera prendida, frena.
         moderationStatus: 'PENDING_REVIEW',
+        // Rubros del alta: primario obligatorio y secundario opcional. Son las
+        // mismas dos filas que persiste el perfil después (máximo 2).
+        categories: {
+          create: [
+            { categoryId: primaryCategoryId, isPrimary: true },
+            ...(secondaryCategoryId ? [{ categoryId: secondaryCategoryId, isPrimary: false }] : []),
+          ],
+        },
       },
     },
   }
