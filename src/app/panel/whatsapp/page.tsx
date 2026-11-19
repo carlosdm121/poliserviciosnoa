@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
+import { decryptField } from '@/lib/db/encrypt'
 import { prisma } from '@/lib/prisma'
 import { PanelNavbar } from '@/components/panel/PanelNavbar'
 import { VerificarWhatsApp } from '@/components/panel/VerificarWhatsApp'
@@ -45,7 +46,7 @@ export default async function PaginaWhatsApp(): Promise<React.ReactElement> {
         <div className="min-w-0">
           {perfil ? (
             <VerificarWhatsApp
-              numeroActual={perfil.whatsappE164 ?? ''}
+              numeroActual={decryptField(perfil.whatsappE164) ?? ''}
               verificado={perfil.whatsappVerifiedAt !== null}
             />
           ) : (

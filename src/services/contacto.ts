@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 
 import { enlaceWhatsApp } from '@/lib/constantes'
+import { decryptField } from '@/lib/db/encrypt'
 import { prisma } from '@/lib/prisma'
 import { CONDICION_PERFIL_PUBLICO } from '@/services/publicacion'
 import { ERROR_CODES, err, ok, type Resultado } from '@/types/resultado'
@@ -47,7 +48,10 @@ export async function registrarContacto(params: {
     return err('Ese perfil no está disponible.', ERROR_CODES.NO_ENCONTRADO)
   }
 
-  const telefono = perfil.whatsappE164 ?? ''
+  // whatsappE164 está cifrado en la base: en claro solo se lee acá, que es
+  // donde se arma el enlace wa.me. Sin descifrar, los dígitos del cifrado
+  // armaban un número inventado y WhatsApp rechazaba el enlace.
+  const telefono = decryptField(perfil.whatsappE164) ?? ''
   const url = enlaceWhatsApp(telefono.replace(/\D/g, ''))
 
   if (params.contar === false) {
