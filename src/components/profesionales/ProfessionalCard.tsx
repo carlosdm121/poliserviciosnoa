@@ -87,7 +87,7 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
   return (
     <article
       aria-labelledby={`perfil-${profile.slug}-titulo`}
-      className="tarjeta flex h-full flex-col transition-colors duration-150 hover:border-noa-blue"
+      className="tarjeta flex h-full flex-col"
     >
       {profile.image ? (
         <div className="relative aspect-[4/3] w-full border-b-[3px] border-ink bg-ink/5">
@@ -111,7 +111,7 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
       <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="insignia-verificada">
-            <Check className="h-3 w-3" aria-hidden="true" />
+            <Check className="check-icon" aria-hidden="true" />
             WhatsApp verificado
           </span>
           {esEmpresa && profile.companyVerified && (

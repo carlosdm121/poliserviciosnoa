@@ -69,7 +69,7 @@ export function AccesosPorProvincia(): React.ReactElement {
           <li key={provincia}>
             <Link
               href={`/${PROVINCIAS[provincia].slug}`}
-              className="flex min-h-[72px] flex-col justify-between border-[3px] border-ink p-4 transition-colors hover:bg-ink hover:text-paper"
+              className="flex min-h-[72px] flex-col justify-between border border-ink/15 bg-paper p-4 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md hover:border-ink/25 hover:bg-ink/5"
             >
               <span className="text-lg font-black uppercase leading-none">
                 {PROVINCIAS[provincia].nombre}
