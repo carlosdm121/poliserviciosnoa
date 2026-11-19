@@ -21,7 +21,13 @@ export const registroProfesionalSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   whatsapp: whatsappSchema,
+  primaryCategoryId: z.string().min(1, 'Elegí tu rubro principal.'),
+  secondaryCategoryId: z.string().optional().or(z.literal('')),
 })
+  .refine(
+    (datos) => !datos.secondaryCategoryId || datos.secondaryCategoryId !== datos.primaryCategoryId,
+    'El rubro secundario tiene que ser distinto del principal.',
+  )
 
 export type RegistroProfesionalInput = z.infer<typeof registroProfesionalSchema>
 
