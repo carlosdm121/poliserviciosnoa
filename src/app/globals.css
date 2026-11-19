@@ -58,7 +58,7 @@
   /* Botón base. Bordes gruesos y sin redondeo: es la decisión visual que
      separa este sitio de un template genérico. */
   .btn {
-    @apply inline-flex min-h-[44px] items-center justify-center gap-2 border-[3px] border-ink px-5 py-3 text-base font-bold uppercase tracking-wide transition-transform duration-100;
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 border-[3px] border-ink px-5 py-3 text-base font-bold uppercase tracking-wide transition-transform duration-150;
   }
 
   .btn:active {
