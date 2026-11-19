@@ -1,0 +1,44 @@
+import { describe, expect, it, vi } from 'vitest'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { createElement } from 'react'
+
+vi.mock('@/services/catalogo', () => ({
+  obtenerCatalogoPerfil: vi.fn(),
+}))
+
+vi.mock('@/components/registro/FormularioRegistro', () => ({
+  FormularioRegistro: () => createElement('div', null, 'formulario-registro'),
+}))
+
+describe('PaginaRegistro', () => {
+  it('carga el catálogo con obtenerCatalogoPerfil y pasa grupos al FormularioRegistro', async () => {
+    const mockGrupos = [
+      {
+        id: 'g1',
+        nombre: 'Oficios',
+        icono: '🛠️',
+        rubros: [
+          { id: 'r1', nombre: 'Electricista', requiereMatricula: true, etiquetaMatricula: 'Matrícula', subcategoria: [] },
+          { id: 'r2', nombre: 'Plomero', requiereMatricula: false, etiquetaMatricula: null, subcategoria: [{ id: 's1', nombre: 'Destapaciones' }] },
+        ],
+      },
+    ]
+
+    const { obtenerCatalogoPerfil } = await import('@/services/catalogo')
+    const mockObtenerCatalogo = vi.mocked(obtenerCatalogoPerfil)
+    mockObtenerCatalogo.mockResolvedValue({
+      grupos: mockGrupos,
+      ciudades: [],
+      rubrosLicenciados: {},
+    })
+
+    const modulo = await import('@/app/registro/page')
+    const PaginaRegistro = modulo.default
+
+    const element = await PaginaRegistro()
+    expect(element).toBeTruthy()
+
+    const html = renderToStaticMarkup(element)
+    expect(html).toContain('formulario-registro')
+  })
+})
