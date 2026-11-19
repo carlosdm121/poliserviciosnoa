@@ -164,6 +164,22 @@ describe('ProfessionalCard', () => {
 
     expect(html).not.toContain('Ingresá antes de contactar')
   })
+
+  // Rediseño: la nota de login va debajo de los botones (antes competía con
+  // el botón de WhatsApp en el medio de las acciones) y la card se tiñe de
+  // azul al hover.
+  it('ordena la card: acciones primero y la nota de ingreso al final', () => {
+    const html = render(persona(), false)
+
+    const posicionWhatsapp = html.indexOf('href="/api/contacto/')
+    const posicionVerPerfil = html.indexOf('href="/ana-perez"')
+    const posicionNota = html.indexOf('Ingresá antes de contactar')
+
+    expect(posicionWhatsapp).toBeGreaterThan(-1)
+    expect(posicionVerPerfil).toBeGreaterThan(posicionWhatsapp)
+    expect(posicionNota).toBeGreaterThan(posicionVerPerfil)
+    expect(html).toContain('hover:border-noa-blue')
+  })
 })
 
 describe('ProfessionalCardSkeleton', () => {

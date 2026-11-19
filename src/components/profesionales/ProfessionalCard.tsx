@@ -1,5 +1,5 @@
 import type { Province, ProfileType, TeamSize } from '@prisma/client'
-import { MapPin } from 'lucide-react'
+import { Check, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -87,7 +87,7 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
   return (
     <article
       aria-labelledby={`perfil-${profile.slug}-titulo`}
-      className="tarjeta flex h-full flex-col"
+      className="tarjeta flex h-full flex-col transition-colors duration-150 hover:border-noa-blue"
     >
       {profile.image ? (
         <div className="relative aspect-[4/3] w-full border-b-[3px] border-ink bg-ink/5">
@@ -108,9 +108,12 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
         </div>
       )}
 
-      <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
-        <div className="flex flex-wrap gap-2">
-          <span className="insignia-verificada">WhatsApp verificado</span>
+      <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="insignia-verificada">
+            <Check className="h-3 w-3" aria-hidden="true" />
+            WhatsApp verificado
+          </span>
           {esEmpresa && profile.companyVerified && (
             <span className="insignia-verificada">Empresa verificada</span>
           )}
@@ -164,7 +167,10 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
           <p className="line-clamp-2 text-sm leading-snug">{profile.shortBio}</p>
         )}
 
-        <div className="mt-auto">
+        {/* Corazones + acciones + nota: empujados al fondo de la card. La nota
+            de login va al final, después de los botones, para no competir con
+            el WhatsApp. */}
+        <div className="mt-auto space-y-3 border-t-2 border-ink/10 pt-3">
           <BotonCorazon
             profileId={profile.id}
             corazones={profile.heartsCount}
@@ -173,31 +179,28 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
             motivo={estadoVoto.motivo}
             horasRestantes={estadoVoto.horasRestantes}
           />
-        </div>
 
-        <div className="space-y-2">
-          <a
-            href={`/api/contacto/${profile.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Contactar a ${nombre} por WhatsApp`}
-            className="btn-whatsapp w-full"
-          >
-            WhatsApp
-          </a>
+          <div className="space-y-2">
+            <a
+              href={`/api/contacto/${profile.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Contactar a ${nombre} por WhatsApp`}
+              className="btn-whatsapp w-full"
+            >
+              WhatsApp
+            </a>
+
+            <Link href={`/${profile.slug}`} className="btn-linea w-full">
+              Ver perfil
+            </Link>
+          </div>
 
           {!logueado && (
-            <Link
-              href="/login"
-              className="block text-xs font-bold leading-tight underline decoration-2 underline-offset-2"
-            >
+            <p className="text-xs leading-tight text-muted">
               Ingresá antes de contactar para poder valorar a este profesional después
-            </Link>
+            </p>
           )}
-
-          <Link href={`/${profile.slug}`} className="btn-linea w-full">
-            Ver perfil
-          </Link>
         </div>
       </div>
     </article>
