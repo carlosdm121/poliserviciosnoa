@@ -85,7 +85,7 @@ export function HeroSlideshow({
               alt=""
               loading={i === 0 ? 'eager' : 'lazy'}
               className={cn(
-                i === activo ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none',
+                i === activo ? 'opacity-100 z-10 hero-zoom' : 'opacity-0 z-0 pointer-events-none',
                 'transition-opacity duration-1000 ease-in-out',
               )}
             />
