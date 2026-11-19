@@ -87,7 +87,7 @@ export function ProfessionalCard({ profile, logueado, voto }: Props): React.Reac
   return (
     <article
       aria-labelledby={`perfil-${profile.slug}-titulo`}
-      className="tarjeta flex h-full flex-col"
+      className="tarjeta flex h-full flex-col hover:border-noa-blue"
     >
       {profile.image ? (
         <div className="relative aspect-[4/3] w-full border-b-[3px] border-ink bg-ink/5">
