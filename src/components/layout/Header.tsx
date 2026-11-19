@@ -133,9 +133,9 @@ export function Header(): JSX.Element {
             <Link
               href="/buscar"
               className={cn(
-                'font-bold uppercase tracking-wide border-b-2 border-transparent px-1',
+                'link-nav font-bold uppercase tracking-wide px-1',
                 activo('/buscar')
-                  ? 'border-noa-blue text-noa-blue'
+                  ? 'link-nav-activo text-noa-blue'
                   : 'text-muted hover:text-noa-blue',
               )}
             >
@@ -144,9 +144,9 @@ export function Header(): JSX.Element {
             <Link
               href="/publica-tu-servicio"
               className={cn(
-                'font-bold uppercase tracking-wide border-b-2 border-transparent px-1',
+                'link-nav font-bold uppercase tracking-wide px-1',
                 activo('/publica-tu-servicio')
-                  ? 'border-noa-blue text-noa-blue'
+                  ? 'link-nav-activo text-noa-blue'
                   : 'text-muted hover:text-noa-blue',
               )}
             >
@@ -155,9 +155,9 @@ export function Header(): JSX.Element {
             <Link
               href="/ayuda"
               className={cn(
-                'font-bold uppercase tracking-wide border-b-2 border-transparent px-1',
+                'link-nav font-bold uppercase tracking-wide px-1',
                 activo('/ayuda')
-                  ? 'border-noa-blue text-noa-blue'
+                  ? 'link-nav-activo text-noa-blue'
                   : 'text-muted hover:text-noa-blue',
               )}
             >
@@ -166,9 +166,9 @@ export function Header(): JSX.Element {
             <Link
               href="/soporte"
               className={cn(
-                'font-bold uppercase tracking-wide border-b-2 border-transparent px-1',
+                'link-nav font-bold uppercase tracking-wide px-1',
                 activo('/soporte')
-                  ? 'border-noa-blue text-noa-blue'
+                  ? 'link-nav-activo text-noa-blue'
                   : 'text-muted hover:text-noa-blue',
               )}
             >

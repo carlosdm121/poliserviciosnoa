@@ -92,7 +92,30 @@
     @apply bg-ink text-paper;
   }
 
-  /* Etiqueta pequeña con borde. Sirve para rubros, badges y estados. */
+  /* Subrayado que crece desde la izquierda al hover: el acento noa-blue
+   entra sin pisar el estado activo de los links. */
+.link-nav {
+  position: relative;
+}
+
+.link-nav::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 0;
+  height: 2px;
+  background: #0a84ff;
+  transition: width 0.15s ease;
+}
+
+.link-nav:hover::after,
+.link-nav:focus-visible::after,
+.link-nav-activo::after {
+  width: 100%;
+}
+
+/* Etiqueta pequeña con borde. Sirve para rubros, badges y estados. */
   .etiqueta {
     @apply inline-flex items-center gap-1 border-2 border-ink px-2 py-0.5 text-xs font-bold uppercase tracking-wide;
   }
@@ -364,14 +387,13 @@
   padding: clamp(1.5rem, 4vw, 3rem) 0;
 }
 
-/* Buscador: siempre visible, barra blanca con borde y sombra suave.
-   Siempre en flujo normal del hero, nunca absoluto. */
+/* Buscador: siempre visible, barra blanca con borde grueso. Siempre en
+   flujo normal del hero, nunca absoluto. Los inputs y el botón los aportan
+   .campo y .btn-oscuro desde el JSX (mismo buscador que /buscar). */
 .hero-buscador {
   background: var(--color-white);
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
+  border: 3px solid #0a0a0a;
   padding: clamp(0.625rem, 2vw, 1rem);
-  box-shadow: 0 10px 25px rgba(5, 8, 15, 0.12);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -383,99 +405,8 @@
     flex-direction: row;
     align-items: stretch;
     gap: 0.5rem;
-    padding: 0.75rem 1rem;
     max-width: 900px;
   }
-}
-
-/* Campos del buscador dentro del hero. */
-.hero-buscador input,
-.hero-buscador select {
-  width: 100%;
-  min-height: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 0.5rem 0.875rem;
-  font-size: 0.95rem;
-  color: var(--color-text);
-  background: var(--color-white);
-  font-family: inherit;
-}
-
-@media (min-width: 768px) {
-  .hero-buscador input,
-  .hero-buscador select {
-    min-height: 48px;
-    font-size: 1rem;
-  }
-}
-
-.hero-buscador input::placeholder {
-  color: #9ca3af;
-}
-
-.hero-buscador input:focus,
-.hero-buscador select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
-}
-
-/* Botón del buscador: azul primario, texto blanco, hover con elevación. */
-.hero-buscador button[type="submit"] {
-  min-height: 44px;
-  background: var(--color-primary);
-  color: var(--color-white);
-  border: none;
-  border-radius: 10px;
-  padding: 0.5rem 1.25rem;
-  font-weight: 600;
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  transition: all 0.15s ease;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-@media (min-width: 768px) {
-  .hero-buscador button[type="submit"] {
-    min-height: 48px;
-    padding: 0.5rem 1.5rem;
-  }
-}
-
-.hero-buscador button[type="submit"]:hover {
-  background: var(--color-primary-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
-}
-
-.hero-buscador button[type="submit"]:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.5);
-}
-
-/* Fila de confianza debajo del buscador. (Opcional, se añade por page.tsx) */
-.hero-confianza {
-  display: flex;
-  flex-wrap: wrap;
-  gap: clamp(1rem, 3vw, 2rem);
-  margin-top: clamp(1rem, 2vw, 1.5rem);
-  padding-top: clamp(1rem, 2vw, 1.5rem);
-  border-top: 1px solid var(--color-border);
-  font-size: 0.875rem;
-  color: #9ca3af;
-}
-
-.hero-confianza span {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.hero-confianza svg {
-  color: var(--color-accent);
 }
 
 /* Respeta prefers-reduced-motion: desactiva el crossfade del slider. */
