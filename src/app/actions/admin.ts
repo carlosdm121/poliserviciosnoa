@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger'
 import { ipHasheada } from '@/lib/peticion'
 import { prisma } from '@/lib/prisma'
 import {
+  editarWhatsappManual,
   marcarMatriculaRevisada,
   rechazarDesdePanel,
   reactivarPerfil,
@@ -175,6 +176,23 @@ export async function adminVerificarWhatsapp(datos: FormData): Promise<void> {
 
   refrescarPanel()
   volver(datos, resultado.ok, resultado.ok ? 'Número verificado a mano.' : resultado.error)
+}
+
+/** Cambia el número de WhatsApp de un perfil desde el panel. */
+export async function adminEditarWhatsapp(datos: FormData): Promise<void> {
+  const admin = await exigirAdmin()
+  if (!admin.ok) return volver(datos, false, admin.error)
+
+  const resultado = await editarWhatsappManual({
+    profileId: texto(datos, 'profileId'),
+    telefono: texto(datos, 'telefono'),
+    verificar: marcado(datos, 'verificar'),
+    motivo: texto(datos, 'motivo'),
+    actor: admin.data,
+  })
+
+  refrescarPanel()
+  volver(datos, resultado.ok, resultado.ok ? 'Número actualizado.' : resultado.error)
 }
 
 /** Aprueba o rechaza una constancia de inscripción. */

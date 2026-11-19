@@ -8,7 +8,10 @@ import {
 
 import { calcularPagina, normalizarPagina, POR_PAGINA } from '@/lib/admin'
 import { borrarRecurso } from '@/lib/cloudinary'
+import { decryptField, encryptField } from '@/lib/db/encrypt'
+import { hashTelefono } from '@/lib/hash'
 import { logger } from '@/lib/logger'
+import { enmascararTelefono, normalizarWhatsapp } from '@/lib/phone'
 import { prisma } from '@/lib/prisma'
 import { registrarAuditoria, type ActorAuditoria } from '@/services/auditoria'
 import { aprobarPerfil, rechazarPerfil, suspenderPerfil } from '@/services/moderacion'
@@ -146,7 +149,7 @@ export async function listarPerfilesAdmin(filtros: FiltrosPerfiles = {}): Promis
 
 /** Detalle completo para revisar un perfil sin salir del panel. */
 export async function perfilDetalleAdmin(profileId: string) {
-  return prisma.profile.findUnique({
+  const perfil = await prisma.profile.findUnique({
     where: { id: profileId },
     select: {
       id: true,
@@ -235,6 +238,11 @@ export async function perfilDetalleAdmin(profileId: string) {
       },
     },
   })
+
+  if (!perfil) return null
+
+  // whatsappE164 está cifrado en la base; el panel lo muestra en claro.
+  return { ...perfil, whatsappE164: decryptField(perfil.whatsappE164) }
 }
 
 /** Cola de altas esperando aprobación. */
@@ -444,6 +452,96 @@ export async function verificarWhatsappManual(params: {
   logger.info('admin: whatsapp verificado a mano', {
     profileId: perfil.id,
     actor: params.actor.email,
+  })
+
+  return ok(null)
+}
+
+/**
+ * Cambia el número de WhatsApp de un perfil desde el panel.
+ *
+ * Es la salida para el suscriptor que cargó mal el número y no puede
+ * re-verificar solo (el WhatsApp empresarial no recibe el SMS). El número
+ * nuevo queda verificado solo si el admin lo pide, y en ambos casos el motivo
+ * queda en auditoría con los números enmascarados.
+ *
+ * `whatsappHash` se guarda siempre: es el único índice que detecta que el
+ * número ya pertenece a otro perfil (`whatsappE164` está cifrado con IV
+ * aleatorio, así que su unicidad no sirve para esto).
+ */
+export async function editarWhatsappManual(params: {
+  profileId: string
+  telefono: string
+  verificar: boolean
+  motivo: string
+  actor: ActorAuditoria
+}): Promise<Resultado<null>> {
+  const e164 = normalizarWhatsapp(params.telefono)
+
+  if (!e164) {
+    return err('Ese número no parece un celular de Argentina.', ERROR_CODES.VALIDACION)
+  }
+
+  const motivo = params.motivo.trim()
+
+  if (motivo.length < 5) {
+    return err('Escribí por qué cambiás el número.', ERROR_CODES.VALIDACION)
+  }
+
+  const perfil = await prisma.profile.findUnique({
+    where: { id: params.profileId },
+    select: { id: true, whatsappE164: true },
+  })
+
+  if (!perfil) return err('No encontramos ese perfil.', ERROR_CODES.NO_ENCONTRADO)
+
+  const anterior = decryptField(perfil.whatsappE164)
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.profile.update({
+        where: { id: perfil.id },
+        data: {
+          whatsappE164: encryptField(e164),
+          whatsappHash: hashTelefono(e164),
+          // La verificación anterior prueba el número viejo: sin confirmación
+          // del admin sobre el nuevo, no puede seguir en pie.
+          whatsappVerifiedAt: params.verificar ? new Date() : null,
+          whatsappVerifiedBy: params.verificar ? `MANUAL:${params.actor.email}` : null,
+        },
+      })
+
+      await registrarAuditoria(
+        {
+          actor: params.actor,
+          accion: 'whatsapp.editar_numero',
+          entidad: 'Profile',
+          entidadId: perfil.id,
+          antes: { numero: anterior ? enmascararTelefono(anterior) : null },
+          despues: {
+            numero: enmascararTelefono(e164),
+            verificado: params.verificar,
+            motivo,
+          },
+        },
+        tx,
+      )
+    })
+  } catch (error: unknown) {
+    // El número ya está asociado a otra cuenta (corrección de carrera).
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return err('Ese número ya está asociado a otra cuenta.', ERROR_CODES.DUPLICADO)
+    }
+
+    throw error
+  }
+
+  await sincronizarPublicacion(perfil.id)
+
+  logger.info('admin: whatsapp editado desde el panel', {
+    profileId: perfil.id,
+    actor: params.actor.email,
+    verificado: params.verificar,
   })
 
   return ok(null)

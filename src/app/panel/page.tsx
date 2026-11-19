@@ -2,9 +2,11 @@ import type { Metadata } from 'next'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
+import { env } from '@/lib/env'
 import { obtenerEstadoPanel, obtenerMetricasPanel } from '@/services/panel'
 import { PanelNavbar } from '@/components/panel/PanelNavbar'
 import { PanelPasos } from '@/components/panel/PanelPasos'
+import { CompartirPerfil } from '@/components/panel/CompartirPerfil'
 import { DashboardMetricas } from '@/components/panel/DashboardMetricas'
 
 export const metadata: Metadata = {
@@ -34,6 +36,10 @@ export default async function PanelPage(): Promise<React.ReactElement> {
     metricas = await obtenerMetricasPanel(estado.perfil.id)
   }
 
+  const urlPerfil = estado.perfil?.slug
+    ? `${env.NEXTAUTH_URL.replace(/\/+$/, '')}/p/${estado.perfil.slug}`
+    : null
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <header className="border-b-[3px] border-ink pb-6">
@@ -41,6 +47,7 @@ export default async function PanelPage(): Promise<React.ReactElement> {
         <h1 className="mt-1 text-title font-black uppercase">
           Hola{estado.perfil ? `, ${estado.perfil.nombre}` : ''}
         </h1>
+        {urlPerfil && <CompartirPerfil url={urlPerfil} />}
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[240px_1fr]">

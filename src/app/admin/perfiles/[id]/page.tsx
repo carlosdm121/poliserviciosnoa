@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import {
   adminAccionPerfil,
   adminAnularVoto,
+  adminEditarWhatsapp,
   adminOcultarImagen,
   adminRevisarMatricula,
   adminResolverEmpresa,
@@ -167,6 +168,32 @@ export default async function PaginaPerfil({
               <input name="motivo" className="campo" placeholder="Cómo se confirmó" required />
               <button className="btn-linea px-3 py-1 text-sm" type="submit">
                 Marcar verificado
+              </button>
+            </form>
+          </section>
+
+          <section className="tarjeta p-4">
+            <h2 className="font-black uppercase">Editar número de WhatsApp</h2>
+            <p className="text-sm text-muted">
+              Si el suscriptor cargó mal el número y no puede re-verificar. Queda en auditoría.
+            </p>
+            <form action={adminEditarWhatsapp} className="mt-3 space-y-2">
+              <input type="hidden" name="profileId" value={perfil.id} />
+              <input type="hidden" name="ruta" value={ruta} />
+              <input
+                name="telefono"
+                className="campo"
+                defaultValue={perfil.whatsappE164 ?? ''}
+                placeholder="5493811234567"
+                required
+              />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="verificar" defaultChecked className="h-4 w-4" />
+                Marcar como verificado
+              </label>
+              <input name="motivo" className="campo" placeholder="Motivo (obligatorio)" required />
+              <button className="btn-oscuro px-3 py-1 text-sm" type="submit">
+                Guardar número
               </button>
             </form>
           </section>
