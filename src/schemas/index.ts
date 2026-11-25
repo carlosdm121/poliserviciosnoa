@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { emailSchema, nombreSchema, passwordSchema, whatsappSchema } from './contacto'
+import { perfilBaseSchema, reglasCruzadasPerfil } from './perfil'
 
 /**
  * Schemas de registro y login.
@@ -16,18 +17,16 @@ import { emailSchema, nombreSchema, passwordSchema, whatsappSchema } from './con
 // ---------------------------------------------------------------------------
 
 /** Registro de profesional: es el flujo principal del portal. */
-export const registroProfesionalSchema = z.object({
-  name: nombreSchema,
-  email: emailSchema,
-  password: passwordSchema,
-  whatsapp: whatsappSchema,
-  primaryCategoryId: z.string().min(1, 'Elegí tu rubro principal.'),
-  secondaryCategoryId: z.string().optional().or(z.literal('')),
-})
-  .refine(
-    (datos) => !datos.secondaryCategoryId || datos.secondaryCategoryId !== datos.primaryCategoryId,
-    'El rubro secundario tiene que ser distinto del principal.',
-  )
+export const registroProfesionalSchema = perfilBaseSchema
+  .extend({
+    email: emailSchema,
+    password: passwordSchema,
+    whatsapp: whatsappSchema,
+    aceptaTerminos: z.literal(true, {
+      errorMap: () => ({ message: 'Para crear la cuenta tenés que aceptar los términos.' }),
+    }),
+  })
+  .superRefine(reglasCruzadasPerfil)
 
 export type RegistroProfesionalInput = z.infer<typeof registroProfesionalSchema>
 

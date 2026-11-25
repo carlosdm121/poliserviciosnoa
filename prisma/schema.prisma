@@ -957,6 +957,16 @@ model Subscription {
    * registro del año pasado tiene que seguir diciendo cuál era. Sin esto solo
    * queda "aceptó algo", que no prueba nada.
    */
+  /**
+   * Código de un cupón de meses gratis que el profesional canjeó y todavía no
+   * se activó porque le faltan verificaciones. La redención se crea recién al
+   * activar: hasta entonces el cupo del cupón no se consume.
+   *
+   * Se guarda el código y no un FK: si el cupón se borra, la reserva sigue
+   * diciendo qué se prometió, y el canje se valida contra el código al activar.
+   */
+  pendingCouponCode String?
+
   termsVersion    String?
   termsAcceptedAt DateTime?
 

@@ -102,6 +102,24 @@ export type EditarPerfil = {
 }
 
 /**
+ * Guarda el perfil **dentro de una transacción ya abierta**.
+ *
+ * A diferencia de `guardarPerfil`, no abre su propia transacción ni hace
+ * `FOR UPDATE`: la fila se acaba de crear en la misma transacción. La usa
+ * `registrarProfesional` para escribir el perfil completo en el alta.
+ */
+export async function guardarPerfilEnTx(
+  tx: Prisma.TransactionClient,
+  profileId: string,
+  datos: ReturnType<typeof perfilSchema.parse>,
+): Promise<Resultado<null>> {
+  const validacion = await validarRelaciones(tx, profileId, datos)
+  if (!validacion.ok) return validacion
+  await escribirPerfil(tx, profileId, datos)
+  return ok(null)
+}
+
+/**
  * Guarda el perfil.
  *
  * Orden dentro de la transacción, y no por casualidad:
@@ -154,7 +172,7 @@ export async function guardarPerfil(
           throw new ErrorValidacionPerfil(validacion.error)
         }
 
-        await escribirPerfil(tx, profileId, datos)
+        await guardarPerfilEnTx(tx, profileId, datos)
       },
       // La validación hace varias consultas. Con el límite por defecto de
       // Postgres, una transacción corta como esta ya abre su propio snapshot,

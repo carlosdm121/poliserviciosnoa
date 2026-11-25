@@ -14,6 +14,7 @@ import { hashearPassword } from '@/lib/password'
 import { estaBloqueado } from '@/services/bloqueo'
 import { esEmailDesechable, registrarAltaDesdeIp, registrarRiesgo } from '@/services/riesgo'
 import { registroProfesionalSchema, type RegistroProfesionalInput } from '@/schemas'
+import { guardarPerfilEnTx } from '@/services/perfil'
 import { err, ERROR_CODES, ok, type Resultado } from '@/types/resultado'
 
 /** Máximo de altas de profesional por IP y hora. Evita crear cuentas en masa. */
@@ -35,7 +36,7 @@ const ALTAS_POR_IP_Y_HORA = 5
  * los datos. Ver `services/publicacion.ts`.
  */
 export async function registrarProfesional(
-  entrada: RegistroProfesionalInput,
+  data: RegistroProfesionalInput,
 ): Promise<Resultado<{ email: string }>> {
   // La IP se lee acá y no viene del formulario: si la mandara el cliente,
   // cualquiera la falsea y la señal de altas múltiples no sirve para nada.
@@ -54,20 +55,22 @@ export async function registrarProfesional(
 
   // Validar en el servidor aunque el formulario ya haya validado: el cliente
   // se puede manipular, y esta es la única frontera real.
-  const parseado = registroProfesionalSchema.safeParse(entrada)
+  const parseado = registroProfesionalSchema.safeParse(data)
   if (!parseado.success) {
     const primero = parseado.error.issues[0]
     return err(primero?.message ?? 'Revisá los datos del formulario.', ERROR_CODES.VALIDACION)
   }
 
-  const { name, email, password, whatsapp, primaryCategoryId, secondaryCategoryId } = parseado.data
+  // Esquema plano: { ...perfil, email, password, whatsapp, aceptaTerminos }
+  const { email, password, whatsapp, aceptaTerminos, ...perfil } = parseado.data
+  const { name } = perfil
 
-  /**
-   * Rubros elegidos en el alta. Validar contra la base antes de crear nada:
-   * un rubro inactivo o inexistente no debe dejar un perfil huérfano sin
-   * categorías. El secundario no puede repetir el primario (el schema ya lo
-   * fija, esto revalida contra la base por seguridad en la frontera real).
-   */
+  if (!aceptaTerminos) {
+    return err('Para crear la cuenta tenés que aceptar los términos.', ERROR_CODES.VALIDACION)
+  }
+
+  // Rubros: están en perfil.catalogo. Validar contra la base antes de crear.
+  const { primaryCategoryId, secondaryCategoryId } = perfil.catalogo
   const rubrosSolicitados = [primaryCategoryId, secondaryCategoryId].filter(
     (valor): valor is string => Boolean(valor),
   )
@@ -91,14 +94,7 @@ export async function registrarProfesional(
     )
   }
 
-  /**
-   * Lista de bloqueo.
-   *
-   * Se consulta antes de crear nada. Un email o un teléfono bloqueados son de
-   * cuentas suspendidas por fraude, y el mensaje tiene que ser el mismo para
-   * los dos: si el de teléfono dijera "ya está en otro perfil", el tramposo
-   * sabe que el número es real y solo tiene que cambiar el email.
-   */
+  // Lista de bloqueo.
   const [emailBloqueado, whatsappBloqueado] = await Promise.all([
     estaBloqueado('EMAIL', email),
     estaBloqueado('WHATSAPP_HASH', whatsapp),
@@ -113,50 +109,42 @@ export async function registrarProfesional(
     )
   }
 
-  // El slug es único y obligatorio en la base. Se genera acá y no se acepta
-  // del cliente: un slug elegido a mano puede colisionar o quedar feo en la
-  // URL pública.
+  // Slug único.
   const slug = generarSlugPerfil(name)
 
-  // El rol se define acá y no viene del cliente: si el formulario mandara el
-  // rol, cualquiera se auto-asigna admin.
-  const nuevoUsuario: Prisma.UserCreateInput = {
-    email,
-    passwordHash: await hashearPassword(password),
-    name,
-    role: 'PROFESSIONAL',
-    emailVerified: null,
-    // La IP se guarda hasheada y solo para la señal de altas múltiples. No
-    // sirve para nada más, y por eso no se guarda en claro.
-    signupIpHash: ip ? hashValor(ip) : null,
-    profile: {
-      create: {
-        name,
-        slug,
-        whatsappE164: encryptField(whatsapp),
-        whatsappHash: hashValor(whatsapp),
-        type: 'PERSON',
-        // El alta nace sin aprobar. Con la bandera `requireManualApproval`
-        // apagada eso no frena la publicación; con la bandera prendida, frena.
-        moderationStatus: 'PENDING_REVIEW',
-        // Rubros del alta: primario obligatorio y secundario opcional. Son las
-        // mismas dos filas que persiste el perfil después (máximo 2).
-        categories: {
-          create: [
-            { categoryId: primaryCategoryId, isPrimary: true },
-            ...(secondaryCategoryId ? [{ categoryId: secondaryCategoryId, isPrimary: false }] : []),
-          ],
-        },
-      },
-    },
-  }
-
+  // Dentro de una única transacción: User + Profile + guardarPerfilEnTx.
   try {
-    await prisma.user.create({ data: nuevoUsuario })
+    await prisma.$transaction(async (tx) => {
+      // 1. User
+      const user = await tx.user.create({
+        data: {
+          email,
+          passwordHash: await hashearPassword(password),
+          name,
+          role: 'PROFESSIONAL',
+          emailVerified: null,
+          signupIpHash: ip ? hashValor(ip) : null,
+        },
+      })
+
+      // 2. Profile (mínimo)
+      const profile = await tx.profile.create({
+        data: {
+          userId: user.id,
+          name,
+          slug,
+          whatsappE164: encryptField(whatsapp),
+          whatsappHash: hashValor(whatsapp),
+          type: perfil.type,
+          moderationStatus: 'PENDING_REVIEW',
+        },
+      })
+
+      // 3. Perfil completo (rubros, ubicación, empresa, etc.)
+      await guardarPerfilEnTx(tx, profile.id, perfil)
+    })
   } catch (error: unknown) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // P2002: violación de índice único. Mirar qué campo lo disparó es lo que
-      // permite dar el mensaje correcto en vez de un "algo salió mal".
       const objetivo = error.meta?.target
 
       if (Array.isArray(objetivo) && objetivo.includes('email')) {
@@ -172,25 +160,20 @@ export async function registrarProfesional(
           ERROR_CODES.DUPLICADO,
         )
       }
+
+      if (Array.isArray(objetivo) && objetivo.includes('cuit')) {
+        return err(
+          'Ese CUIT ya está en otro perfil. Cada empresa puede tener un solo perfil.',
+          ERROR_CODES.DUPLICADO,
+        )
+      }
     }
 
-    // Cualquier otro error se registra completo del lado del servidor y se
-    // devuelve un mensaje genérico: el detalle puede filtrar estructura de la
-    // base a un atacante. El logger redacta el email y el teléfono.
-    logger.error('registroProfesional: error inesperado', {
-      error,
-      email,
-    })
-    return err(
-      'No pudimos crear tu cuenta. Probá de nuevo en un rato.',
-      ERROR_CODES.DESCONOCIDO,
-    )
+    logger.error('registroProfesional: error inesperado', { error, email })
+    return err('No pudimos crear tu cuenta. Probá de nuevo en un rato.', ERROR_CODES.DESCONOCIDO)
   }
 
-  // Generar el token y enviar el email de verificación. Si falla, la cuenta
-  // queda creada pero sin verificar: el usuario puede pedir que se lo
-  // reenvíen. Es preferible a tirar atrás el registro entero por un problema
-  // del proveedor de email.
+  // Email de verificación (fuera de la transacción). Si falla, rollback borrando usuario.
   try {
     const { crearTokenVerificacion } = await import('@/lib/verificacion-email')
     const token = await crearTokenVerificacion(email)
@@ -198,27 +181,17 @@ export async function registrarProfesional(
     const { enviarEmailVerificacion } = await import('@/lib/email')
     await enviarEmailVerificacion({ email, nombre: name, token })
   } catch (error: unknown) {
-    // Rollback: eliminar usuario creado
     try {
       await prisma.user.delete({ where: { email } })
     } catch (rollbackError) {
-      logger.error('registroProfesional: rollback fallido', {
-        originalError: error,
-        rollbackError,
-      })
+      logger.error('registroProfesional: rollback fallido', { originalError: error, rollbackError })
     }
     logger.error('registroProfesional: no se pudo enviar el email de verificación', { error })
-    return err(
-      'No pudimos crear tu cuenta. Probá de nuevo en un rato.',
-      ERROR_CODES.ERROR_EXTERNO,
-    )
+    return err('No pudimos crear tu cuenta. Probá de nuevo en un rato.', ERROR_CODES.ERROR_EXTERNO)
   }
 
-  // Señales de riesgo. Van después del alta, no antes: son contexto para que
-  // alguien mire, y si fallan el registro tiene que estar hecho igual.
-  await registrarRiesgoDelAlta(email, ip).catch(() => {
-    /* el registro ya está hecho: una señal que no se registra no lo reverses */
-  })
+  // Señales de riesgo.
+  await registrarRiesgoDelAlta(email, ip).catch(() => {})
 
   return ok({ email })
 }

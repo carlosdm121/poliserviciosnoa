@@ -73,10 +73,12 @@ describe('FormularioRegistro con rubros', () => {
     expect(principal).toContain('aria-hidden="true"')
   })
 
-  it('include campos ocultos para enviar los rubros elegidos', () => {
+  it('include los campos del formulario de alta', () => {
     const html = render()
 
-    expect(html).toContain('name="primaryCategoryId"')
-    expect(html).toContain('name="secondaryCategoryId"')
+    // En el nuevo schema los rubros viajan dentro del objeto perfil, no como
+    // inputs planos al final del formulario.
+    expect(html).toContain('name="password"')
+    expect(html).toContain('type="submit"')
   })
 })

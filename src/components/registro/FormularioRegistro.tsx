@@ -63,13 +63,32 @@ export function FormularioRegistro({
     const secondary = datos.get('secondaryCategoryId') ?? ''
 
     iniciarTransicion(async () => {
+      // FormularioRegistro es un puente temporal hasta que se reemplace por
+      // FormularioPerfil con modo="alta" (Fase 3). Envía los campos mínimos que
+      // el schema nuevo espera: datos de cuenta + perfil con valores por defecto
+      // para los campos que este formulario no captura todavía.
       const resultado = await registrarProfesional({
+        type: 'PERSON',
         name: nombre,
         email,
         password,
         whatsapp,
-        primaryCategoryId: String(primary),
-        secondaryCategoryId: String(secondary) || undefined,
+        description: '',
+        company: {},
+        ubicacion: {
+          province: '',
+          baseCityId: '',
+          coversWholeProvince: false,
+          otherProvinces: [],
+          cityIds: [],
+        },
+        catalogo: {
+          primaryCategoryId: String(primary),
+          secondaryCategoryId: String(secondary) || '',
+          subcategoryIds: [],
+          licenseNumber: '',
+        },
+        aceptaTerminos: true,
       })
 
       if (resultado.ok) {
@@ -212,17 +231,6 @@ export function FormularioRegistro({
       >
         Crear mi cuenta
       </Button>
-
-      <input
-        type="hidden"
-        name="primaryCategoryId"
-        value={primaryCategoryId}
-      />
-      <input
-        type="hidden"
-        name="secondaryCategoryId"
-        value={secondaryCategoryId || ''}
-      />
 
       <p className="text-sm text-muted">
         Al crear la cuenta aceptás nuestros{' '}

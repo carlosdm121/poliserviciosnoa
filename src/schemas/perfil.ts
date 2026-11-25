@@ -119,7 +119,7 @@ const ubicacionSchema = z
 /** Rubros y subcategorías. */
 const catalogoSchema = z
   .object({
-    primaryCategoryId: id,
+    primaryCategoryId: z.string().min(1, 'Elegí tu rubro principal.'),
     secondaryCategoryId: id.optional().or(z.literal('')),
     subcategoryIds: z
       .array(id)
@@ -130,8 +130,8 @@ const catalogoSchema = z
   })
   .strict()
 
-/** Objeto completo del formulario. */
-export const perfilSchema = z
+/** Objeto completo del formulario, sin las reglas cruzadas que necesitan contexto. */
+export const perfilBaseSchema = z
   .object({
     type: tipoPerfilSchema,
     name: nombreMostrarSchema,
@@ -141,58 +141,74 @@ export const perfilSchema = z
     catalogo: catalogoSchema,
   })
   .strict()
-  .superRefine((valor, ctx) => {
-    // El secundario tiene que ser distinto del principal. Sin esto, elegir el
-    // mismo dos veces deja un perfil con un solo rubro y un contador que dice
-    // 2/2, que no cuadra con nada.
-    if (valor.catalogo.secondaryCategoryId === valor.catalogo.primaryCategoryId) {
+
+/**
+ * Reglas cruzadas del perfil: validaciones que comparan campos entre sí.
+ *
+ * El secundario tiene que ser distinto del principal. Sin esto, elegir el
+ * mismo dos veces deja un perfil con un solo rubro y un contador que dice
+ * 2/2, que no cuadra con nada. Las subcategorías no se repiten y la ciudad
+ * base no se lista dos veces en la cobertura. Y si es empresa, hay que completar
+ * lo mínimo: razón social y CUIT.
+ */
+export function reglasCruzadasPerfil(
+  valor: z.infer<typeof perfilBaseSchema>,
+  ctx: z.RefinementCtx,
+): void {
+  // El secundario tiene que ser distinto del principal. Sin esto, elegir el
+  // mismo dos veces deja un perfil con un solo rubro y un contador que dice
+  // 2/2, que no cuadra con nada.
+  if (valor.catalogo.secondaryCategoryId === valor.catalogo.primaryCategoryId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['catalogo', 'secondaryCategoryId'],
+      message: 'El rubro secundario tiene que ser distinto del principal.',
+    })
+  }
+
+  // Sin las subcategorías duplicadas, el contador del panel miente y el
+  // límite de 4 se puede gastar en la misma dos veces.
+  const unicas = new Set(valor.catalogo.subcategoryIds)
+
+  if (unicas.size !== valor.catalogo.subcategoryIds.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['catalogo', 'subcategoryIds'],
+      message: 'Hay una subcategoría repetida.',
+    })
+  }
+
+  // La ciudad base no hace falta repetirla en la cobertura.
+  if (valor.ubicacion.cityIds.includes(valor.ubicacion.baseCityId)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ubicacion', 'cityIds'],
+      message: 'La ciudad base ya está cubierta. Sacala de la lista.',
+    })
+  }
+
+  // Si el tipo es empresa, hay que completar lo mínimo de empresa.
+  if (valor.type === 'COMPANY') {
+    if (!valor.company.companyName) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['catalogo', 'secondaryCategoryId'],
-        message: 'El rubro secundario tiene que ser distinto del principal.',
+        path: ['company', 'companyName'],
+        message: 'Escribí la razón social de la empresa.',
       })
     }
 
-    // Sin las subcategorías duplicadas, el contador del panel miente y el
-    // límite de 4 se puede gastar en la misma dos veces.
-    const unicas = new Set(valor.catalogo.subcategoryIds)
-
-    if (unicas.size !== valor.catalogo.subcategoryIds.length) {
+    if (!valor.company.cuit) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['catalogo', 'subcategoryIds'],
-        message: 'Hay una subcategoría repetida.',
+        path: ['company', 'cuit'],
+        message: 'Escribí el CUIT de la empresa.',
       })
     }
+  }
+}
 
-    // La ciudad base no hace falta repetirla en la cobertura.
-    if (valor.ubicacion.cityIds.includes(valor.ubicacion.baseCityId)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['ubicacion', 'cityIds'],
-        message: 'La ciudad base ya está cubierta. Sacala de la lista.',
-      })
-    }
-
-    // Si el tipo es empresa, hay que completar lo mínimo de empresa.
-    if (valor.type === 'COMPANY') {
-      if (!valor.company.companyName) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['company', 'companyName'],
-          message: 'Escribí la razón social de la empresa.',
-        })
-      }
-
-      if (!valor.company.cuit) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['company', 'cuit'],
-          message: 'Escribí el CUIT de la empresa.',
-        })
-      }
-    }
-  })
+/** Objeto completo del formulario: forma + reglas cruzadas. */
+export const perfilSchema = perfilBaseSchema.superRefine(reglasCruzadasPerfil)
 
 export type PerfilInput = z.input<typeof perfilSchema>
 
