@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma'
 import { estaBloqueado } from '@/services/bloqueo'
 import { registrarRiesgo } from '@/services/riesgo'
 import { sincronizarPublicacion } from '@/services/publicacion'
+import { activarPromocionSiCorresponde } from '@/services/suscripcion'
 import { err, ERROR_CODES, ok, type Resultado } from '@/types/resultado'
 
 /**
@@ -557,6 +558,7 @@ async function confirmar(
   // Fuera de la transacción: es una lectura de reglas y una escritura derivada,
   // y no tiene sentido que una caída acá revierta una verificación ya
   // confirmada. El cron lo corrige si queda desactualizada.
+  await activarPromocionSiCorresponde(verificacion.profileId)
   await sincronizarPublicacion(verificacion.profileId)
   await limpiarLimite(`wa-codigo:perfil:${verificacion.profileId}`)
 

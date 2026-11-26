@@ -35,7 +35,9 @@ const SECCIONES: readonly Seccion[] = [
  * En móvil no se usa una barra lateral: no hay ancho para ella. Pasa a ser una
  * tira horizontal con scroll, que es el patrón que el pulgar maneja bien.
  */
-export function PanelNavbar(): React.ReactElement {
+export function PanelNavbar({ mostradorDatosFiscales = false }: {
+  mostradorDatosFiscales?: boolean
+}): React.ReactElement {
   const pathname = usePathname()
 
   return (
@@ -45,6 +47,10 @@ export function PanelNavbar(): React.ReactElement {
     >
       <ul className="sin-barra flex max-w-full gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
         {SECCIONES.map((seccion) => {
+          if (!mostradorDatosFiscales && seccion.href === '/panel/datos-fiscales') {
+            return null
+          }
+
           const activa = seccion.exacto ? pathname === seccion.href : pathname.startsWith(seccion.href)
 
           return (

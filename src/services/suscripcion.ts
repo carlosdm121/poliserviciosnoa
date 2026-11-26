@@ -94,6 +94,7 @@ export async function obtenerSuscripcion(profileId: string) {
       termsVersion: true,
       termsAcceptedAt: true,
       createdAt: true,
+      pendingCouponCode: true,
     },
   })
 }
@@ -230,6 +231,7 @@ async function leerParaRequisitos(profileId: string) {
   const perfil = await prisma.profile.findUnique({
     where: { id: profileId },
     select: {
+      type: true,
       baseCityId: true,
       description: true,
       user: { select: { emailVerified: true } },
@@ -244,6 +246,7 @@ async function leerParaRequisitos(profileId: string) {
   return {
     emailVerificado: perfil.user.emailVerified !== null,
     whatsappVerificado: perfil.whatsappVerifiedAt !== null,
+    esEmpresa: perfil.type === 'COMPANY',
     tieneRubroPrincipal: perfil.categories.some((c) => c.isPrimary),
     perfilCompleto: esPerfilCompleto(perfil),
     tieneDatosFiscales: perfil.fiscalData !== null,
@@ -330,6 +333,8 @@ export async function guardarDatosFiscales(
     return err('No pudimos guardar tus datos fiscales. Probá de nuevo.', ERROR_CODES.DESCONOCIDO)
   }
 
+  await activarPromocionSiCorresponde(profileId)
+
   return ok(null)
 }
 
@@ -351,6 +356,7 @@ async function asegurarRequisitos(
   const perfil = await tx.profile.findUnique({
     where: { id: profileId },
     select: {
+      type: true,
       baseCityId: true,
       description: true,
       user: { select: { emailVerified: true } },
@@ -367,6 +373,7 @@ async function asegurarRequisitos(
   const faltantes = evaluarRequisitosPago({
     emailVerificado: perfil.user.emailVerified !== null,
     whatsappVerificado: perfil.whatsappVerifiedAt !== null,
+    esEmpresa: perfil.type === 'COMPANY',
     tieneRubroPrincipal: perfil.categories.some((c) => c.isPrimary),
     perfilCompleto: esPerfilCompleto(perfil),
     tieneDatosFiscales: perfil.fiscalData !== null,
@@ -406,41 +413,6 @@ export async function crearSuscripcion(
   }
 
   const codigoCupon = aceptado.data.codigoCupon
-
-  /**
-   * Los requisitos se evalúan **antes** de hablar con Mercado Pago.
-   *
-   * No es una cuestión de ahorro: si se creara el preapproval y después se
-   * descubriera que falta el WhatsApp verificado, queda un cobro recurrente
-   * abierto en la cuenta de alguien que todavía ni siquiera pudo pagar. Crear
-   * el preapproval es la parte difícil de revertir.
-   */
-  const faltantes = await requisitosDePago(profileId)
-
-  if (faltantes.length > 0) {
-    return err(
-      faltantes.length === 1
-        ? 'Todavía no podés suscribirte: falta un requisito.'
-        : `Todavía no podés suscribirte: faltan ${faltantes.length} requisitos.`,
-      ERROR_CODES.ESTADO_INVALIDO,
-    )
-  }
-
-  /**
-   * Sin plan no se cobra, y no se cobra con un monto de respaldo.
-   *
-   * Mismo criterio de D24 para la pantalla: es preferible bloquear la compra un
-   * segundo a cobrarle a alguien una cifra que nadie le prometió, que no se
-   * puede deshacer.
-   */
-  const plan = await leerPlanVigente()
-
-  if (!plan) {
-    return err(
-      'No hay ningún plan disponible en este momento. Escribinos y te avisamos apenas haya.',
-      ERROR_CODES.ESTADO_INVALIDO,
-    )
-  }
 
   let montoConDescuento: number | null = null
   let mesesGratis = 0
@@ -487,10 +459,78 @@ export async function crearSuscripcion(
     cupoIdUsado = validacion.data.cupo.id
   }
 
-  if (mesesGratis === 0 && !aceptado.data.aceptaCuentaTitular) {
+  /**
+   * Cupón de meses gratis: reserva sin requerir aceptación de cuenta titular ni
+   * requisitos de pago. El pago real (checkout) sí los exige.
+   */
+  if (mesesGratis > 0) {
+    const plan = await leerPlanVigente()
+
+    if (!plan) {
+      return err(
+        'No hay ningún plan disponible en este momento. Escribinos y te avisamos apenas haya.',
+        ERROR_CODES.ESTADO_INVALIDO,
+      )
+    }
+
+    const actual = await obtenerSuscripcion(profileId)
+
+    if (actual?.status === SubscriptionStatus.ACTIVE) {
+      return err('Ya tenés una suscripción activa.', ERROR_CODES.DUPLICADO)
+    }
+
+    const montoPrevio = actual ? aNumeroSeguido(actual.planAmount) : null
+    const montoBase = precioDeAlta(
+      montoPrevio,
+      actual?.priceFrozen ?? false,
+      plan.monto,
+    )
+
+    return activarMesesGratis({
+      profileId,
+      plan,
+      montoBase,
+      codigoCupon: codigoCupon!,
+      mesesGratis,
+      rubroSlug,
+      provincia,
+      whatsappHash: whatsappHashParaCupon,
+      cuitHash: cuitHashParaCupon,
+    })
+  }
+
+  /**
+   * Los requisitos se evalúan antes de hablar con Mercado Pago.
+   *
+   * No es una cuestión de ahorro: si se creara el preapproval y después se
+   * descubriera que falta el WhatsApp verificado, queda un cobro recurrente
+   * abierto en la cuenta de alguien que todavía ni siquiera pudo pagar. Crear
+   * el preapproval es la parte difícil de revertir.
+   */
+  const faltantes = await requisitosDePago(profileId)
+
+  if (faltantes.length > 0) {
+    return err(
+      faltantes.length === 1
+        ? 'Todavía no podés suscribirte: falta un requisito.'
+        : `Todavía no podés suscribirte: faltan ${faltantes.length} requisitos.`,
+      ERROR_CODES.ESTADO_INVALIDO,
+    )
+  }
+
+  if (!aceptado.data.aceptaCuentaTitular) {
     return err(
       'Necesitamos que aceptes que el pago debe salir de una cuenta a tu nombre.',
       ERROR_CODES.VALIDACION,
+    )
+  }
+
+  const plan = await leerPlanVigente()
+
+  if (!plan) {
+    return err(
+      'No hay ningún plan disponible en este momento. Escribinos y te avisamos apenas haya.',
+      ERROR_CODES.ESTADO_INVALIDO,
     )
   }
 
@@ -506,24 +546,6 @@ export async function crearSuscripcion(
     actual?.priceFrozen ?? false,
     plan.monto,
   )
-
-  /**
-   * Un cupón de meses gratis no descuenta el precio: activa el servicio sin
-   * pasar por Mercado Pago y vuelve por su propio camino, sin preapproval.
-   */
-  if (mesesGratis > 0 && codigoCupon) {
-    return activarMesesGratis({
-      profileId,
-      plan,
-      montoBase,
-      codigoCupon,
-      mesesGratis,
-      rubroSlug,
-      provincia,
-      whatsappHash: whatsappHashParaCupon,
-      cuitHash: cuitHashParaCupon,
-    })
-  }
 
   const monto = montoConDescuento ?? montoBase
 
@@ -751,15 +773,185 @@ export async function crearSuscripcion(
 }
 
 /**
+ * Activa la promoción reservada si el perfil cumple todos los requisitos.
+ *
+ * Idempotente y silenciosa: devuelve `false` si no hay nada que hacer y
+ * **nunca lanza** (las verificaciones no pueden fallar por culpa de la promo).
+ *
+ * 1. Leer la suscripción. Si no es `PENDING` o no tiene `pendingCouponCode`, return `false`.
+ * 2. Evaluar los requisitos con `leerParaRequisitos`. Si falta alguno, return `false`.
+ * 3. Transacción con `FOR UPDATE` sobre `Profile` y relectura de la suscripción.
+ * 4. Después del commit, `sincronizarPublicacion(profileId)`.
+ * 5. Return `true`.
+ */
+export async function activarPromocionSiCorresponde(profileId: string): Promise<boolean> {
+  try {
+    const suscripcion = await prisma.subscription.findUnique({
+      where: { profileId },
+      select: {
+        id: true,
+        status: true,
+        pendingCouponCode: true,
+        planAmount: true,
+        planId: true,
+      },
+    })
+
+    if (!suscripcion || suscripcion.status !== SubscriptionStatus.PENDING || suscripcion.pendingCouponCode === null) {
+      return false
+    }
+
+    // Evaluar requisitos
+    const datos = await leerParaRequisitos(profileId)
+    if (!datos) return false
+
+    const faltantes = evaluarRequisitosPago(datos)
+    if (faltantes.length > 0) return false
+
+    // Transacción
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`
+          SELECT id FROM "Profile" WHERE id = ${profileId} FOR UPDATE
+        `
+
+        // Releer suscripción dentro de la transacción
+        const actual = await tx.subscription.findUnique({
+          where: { profileId },
+          select: { id: true, status: true, pendingCouponCode: true, planAmount: true },
+        })
+
+        if (!actual || actual.status !== SubscriptionStatus.PENDING || actual.pendingCouponCode === null) {
+          return
+        }
+
+        // Verificar plan activo
+        const plan = await tx.plan.findUnique({
+          where: { id: suscripcion.planId as string },
+          select: { id: true, isActive: true, amount: true },
+        })
+
+        if (!plan || !plan.isActive) {
+          logger.warn('suscripción: plan inactivo al activar promo', { profileId, planId: suscripcion.planId })
+          return
+        }
+
+        // Derivar meses del cupón
+        const cupo = await tx.cupon.findUnique({
+          where: { codigo: suscripcion.pendingCouponCode as string },
+          select: { tipo: true, valor: true },
+        })
+
+        if (!cupo) {
+          logger.warn('suscripción: cupón no encontrado al activar promo', { profileId, codigo: suscripcion.pendingCouponCode })
+          return
+        }
+
+        const meses = mesesGratisDeCupon(cupo.tipo, Number(cupo.valor))
+        if (meses <= 0) {
+          logger.warn('suscripción: cupón ya no otorga meses gratis', { profileId, codigo: suscripcion.pendingCouponCode })
+          return
+        }
+
+        // Canjear cupón
+        const montoDelPlan = aNumeroSeguido(plan.amount)
+        if (montoDelPlan === null) {
+          logger.warn('suscripción: monto del plan inválido', { profileId, planId: plan.id })
+          return
+        }
+
+        const canje = await canjearCupon({
+          tx,
+          profileId,
+          codigo: suscripcion.pendingCouponCode as string,
+          rubroSlug: null, // Ya validado antes
+          provincia: null,
+          whatsappHash: null,
+          cuitHash: null,
+          ahora: new Date(),
+          montoDelPlan,
+        })
+
+        if (!canje.ok) {
+          logger.warn('suscripción: no se pudo canjear cupón al activar promo', {
+            profileId,
+            codigo: suscripcion.pendingCouponCode,
+            error: canje.error,
+          })
+          throw new ErrorSuscripcion(canje.error, canje.code ?? ERROR_CODES.ESTADO_INVALIDO)
+        }
+
+        // Upsert de la suscripción
+        const ahora = new Date()
+        const fin = sumarMeses(ahora, meses)
+
+        await tx.subscription.update({
+          where: { id: actual.id },
+          data: {
+            status: SubscriptionStatus.ACTIVE,
+            mpPreapprovalId: null,
+            currentPeriodStart: ahora,
+            currentPeriodEnd: fin,
+            pendingCouponCode: null,
+          },
+        })
+
+        // Cancelar preapproval anterior si existe
+        const anterior = await tx.subscription.findUnique({
+          where: { profileId },
+          select: { mpPreapprovalId: true },
+        })
+
+        if (anterior?.mpPreapprovalId) {
+          await cancelarPreapproval(anterior.mpPreapprovalId)
+        }
+      },
+      { timeout: 15000, maxWait: 5000 },
+    )
+
+    // Sincronizar publicación después del commit
+    const sincronizacion = await sincronizarPublicacion(profileId)
+    if (!sincronizacion.ok) {
+      logger.warn('suscripción: se activó la promo pero no se pudo publicar', {
+        profileId,
+        error: sincronizacion.error,
+      })
+    }
+
+    return true
+  } catch (error: unknown) {
+    logger.error('suscripción: error activando promoción', { profileId, error })
+    return false
+  }
+}
+
+/**
+ * Envoltorio para activar promoción desde la página de verificación de email.
+ *
+ * Busca el perfil por email y delega a `activarPromocionSiCorresponde`.
+ */
+export async function activarPromocionPorEmail(email: string): Promise<boolean> {
+  const usuario = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: { id: true },
+  })
+
+  if (!usuario) return false
+
+  const profile = await prisma.profile.findUnique({
+    where: { userId: usuario.id },
+    select: { id: true },
+  })
+
+  if (!profile) return false
+
+  return activarPromocionSiCorresponde(profile.id)
+}
+
+/**
  * Activa un período sin cobro con un cupón de meses gratis.
  *
- * No habla con Mercado Pago: no hay preapproval, no se pide tarjeta y no se
- * crea ningún cobro recurrente. La suscripción queda `ACTIVE` con
- * `currentPeriodEnd` a N meses; cuando llega esa fecha, el cron diario la pasa
- * a `EXPIRED` y despublica el perfil, igual que cualquier período pago.
- *
- * `planAmount` guarda el precio que va a pagar cuando termine la promo, no
- * cero: si el perfil tiene precio congelado, ese es el que tiene que conservar.
+ * Reemplazada por `activarPromocionSiCorresponde`. Se mantiene por compatibilidad.
  */
 async function activarMesesGratis(params: {
   profileId: string
@@ -797,11 +989,6 @@ async function activarMesesGratis(params: {
           )
         }
 
-        /**
-         * Un preapproval viejo sigue cobrando aunque esta alta no cree uno
-         * nuevo. Se anota adentro, con la fila bloqueada, y se cancela después
-         * del commit.
-         */
         const anterior = await tx.subscription.findUnique({
           where: { profileId: params.profileId },
           select: { mpPreapprovalId: true },
@@ -850,11 +1037,6 @@ async function activarMesesGratis(params: {
           montoDelPlan: params.plan.monto,
         })
 
-        /**
-         * Si el canje falla, la suscripción gratuita no puede quedar: sería un
-         * cupón usado sin redención o un perfil con dos meses gratis sin cupo.
-         * La excepción revierte las dos escrituras.
-         */
         if (!canje.ok) {
           throw new ErrorSuscripcion(canje.error, canje.code ?? ERROR_CODES.ESTADO_INVALIDO)
         }

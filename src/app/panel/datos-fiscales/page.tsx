@@ -30,14 +30,21 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaDatosFiscales(): Promise<React.ReactElement> {
   const sesion = await getServerSession(authOptions)
 
-  const perfilId = sesion?.user?.id
+  const perfil = sesion?.user?.id
     ? await prisma.profile.findUnique({
         where: { userId: sesion.user.id },
-        select: { id: true },
+        select: { id: true, type: true },
       })
     : null
 
-  const fiscales = perfilId ? await obtenerDatosFiscales(perfilId.id) : null
+  /** Persona humana no necesita datos fiscales: redirigir al panel. */
+  if (perfil?.type === 'PERSON') {
+    return (
+      <meta http-equiv="refresh" content="0;url=/panel" />
+    )
+  }
+
+  const fiscales = perfil ? await obtenerDatosFiscales(perfil.id) : null
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">

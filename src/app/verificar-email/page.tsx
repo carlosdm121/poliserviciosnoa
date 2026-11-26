@@ -6,12 +6,13 @@ import {
   type EstadoVerificacion,
 } from '@/lib/verificacion-email'
 
+import { activarPromocionPorEmail } from '@/services/suscripcion'
+
 export const metadata: Metadata = {
   title: 'Verificar email',
   robots: { index: false, follow: false },
 }
 
-/** El token es único por request: nada de cachear la respuesta. */
 export const dynamic = 'force-dynamic'
 
 type EstadoPagina = EstadoVerificacion | 'INCOMPLETO'
@@ -19,8 +20,7 @@ type EstadoPagina = EstadoVerificacion | 'INCOMPLETO'
 const MENSAJES: Record<EstadoPagina, { titulo: string; texto: string }> = {
   VERIFICADO: {
     titulo: 'Email verificado',
-    texto:
-      'Tu email quedó confirmado. Ya cumplís el requisito para publicar tu servicio; el resto depende de los demás datos de tu perfil.',
+    texto: 'Tu email quedó confirmado. Ya cumplís el requisito para publicar tu servicio; el resto depende de los demás datos de tu perfil.',
   },
   YA_VERIFICADO: {
     titulo: 'Tu email ya estaba verificado',
@@ -32,8 +32,7 @@ const MENSAJES: Record<EstadoPagina, { titulo: string; texto: string }> = {
   },
   INVALIDO: {
     titulo: 'El enlace no es válido',
-    texto:
-      'Puede que hayas pedido un enlace nuevo o que el link esté incompleto. Pedí uno nuevo.',
+    texto: 'Puede que hayas pedido un enlace nuevo o que el link esté incompleto. Pedí uno nuevo.',
   },
   INCOMPLETO: {
     titulo: 'El enlace está incompleto',
@@ -53,9 +52,12 @@ export default async function PaginaVerificarEmail({
   const sp = await searchParams
   const token = uno(sp.token)
 
-  const estado: EstadoPagina = token
-    ? await verificarEmailConToken(token)
-    : 'INCOMPLETO'
+  const resultado = await verificarEmailConToken(token)
+  const { estado, email } = resultado
+
+  if (estado === 'VERIFICADO' || estado === 'YA_VERIFICADO') {
+    await activarPromocionPorEmail(email)
+  }
 
   const mensaje = MENSAJES[estado]
   const verificado = estado === 'VERIFICADO' || estado === 'YA_VERIFICADO'

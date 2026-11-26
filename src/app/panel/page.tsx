@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getServerSession } from 'next-auth'
+import Link from 'next/link'
 
 import { authOptions } from '@/lib/auth'
 import { env } from '@/lib/env'
@@ -49,6 +50,18 @@ export default async function PanelPage(): Promise<React.ReactElement> {
         </h1>
         {urlPerfil && <CompartirPerfil url={urlPerfil} />}
       </header>
+
+      {estado.existePerfil && estado.promoReservada && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="font-bold">Tenés una promo reservada.</p>
+          <p className="text-sm mt-1">Verificá tu email y WhatsApp para activarla.</p>
+          <div className="mt-3 flex gap-4 text-sm">
+            <Link href="/reenviar-verificacion" className="underline">Reenviar email</Link>
+            <Link href="/panel/whatsapp" className="underline">Verificar WhatsApp</Link>
+            <a href="https://wa.me/..." target="_blank" rel="noopener" className="underline">Ayuda por WhatsApp</a>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
         <PanelNavbar />

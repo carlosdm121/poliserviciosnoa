@@ -26,6 +26,7 @@ import { CONDICIONES_IVA, CONDICION_IVA_VALORES, aceptarTerminosSchema, datosFis
 const COMPLETO = {
   emailVerificado: true,
   whatsappVerificado: true,
+  esEmpresa: false,
   tieneRubroPrincipal: true,
   perfilCompleto: true,
   tieneDatosFiscales: true,
@@ -52,17 +53,44 @@ describe('requisitos para pagar', () => {
     }
   })
 
-  it('con un perfil recién dado de alta faltan los tres más comunes', () => {
+  it('con un perfil recién dado de alta faltan los básicos', () => {
     const faltantes = evaluarRequisitosPago({
       emailVerificado: false,
       whatsappVerificado: false,
+      esEmpresa: false,
       tieneRubroPrincipal: false,
       perfilCompleto: false,
+      tieneDatosFiscales: true,
+    })
+
+    expect(faltantes).toHaveLength(4)
+    expect(faltantes).not.toContain('DATOS_FISCALES_INCOMPLETOS')
+  })
+
+  it('empresa sin datos fiscales marca DATOS_FISCALES_INCOMPLETOS', () => {
+    const faltantes = evaluarRequisitosPago({
+      emailVerificado: true,
+      whatsappVerificado: true,
+      esEmpresa: true,
+      tieneRubroPrincipal: true,
+      perfilCompleto: true,
       tieneDatosFiscales: false,
     })
 
-    expect(faltantes).toHaveLength(5)
     expect(faltantes).toContain('DATOS_FISCALES_INCOMPLETOS')
+  })
+
+  it('empresa con datos fiscales no falta nada', () => {
+    const faltantes = evaluarRequisitosPago({
+      emailVerificado: true,
+      whatsappVerificado: true,
+      esEmpresa: true,
+      tieneRubroPrincipal: true,
+      perfilCompleto: true,
+      tieneDatosFiscales: true,
+    })
+
+    expect(faltantes).toEqual([])
   })
 
   /**

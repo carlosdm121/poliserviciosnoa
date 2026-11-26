@@ -8,6 +8,8 @@ import {
   guardarDatosFiscales,
   cancelarRenovacion,
   crearSuscripcion,
+  activarPromocionSiCorresponde,
+  activarPromocionPorEmail,
 } from '@/services/suscripcion'
 import { err, ERROR_CODES, ok, type Resultado } from '@/types/resultado'
 

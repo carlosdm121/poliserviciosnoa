@@ -6,12 +6,12 @@ vi.mock('@/services/catalogo', () => ({
   obtenerCatalogoPerfil: vi.fn(),
 }))
 
-vi.mock('@/components/registro/FormularioRegistro', () => ({
-  FormularioRegistro: () => createElement('div', null, 'formulario-registro'),
+vi.mock('@/components/perfil/FormularioPerfil', () => ({
+  FormularioPerfil: () => createElement('div', null, 'formulario-perfil'),
 }))
 
 describe('PaginaRegistro', () => {
-  it('carga el catálogo con obtenerCatalogoPerfil y pasa grupos al FormularioRegistro', async () => {
+  it('carga el catálogo con obtenerCatalogoPerfil y pasa grupos al FormularioPerfil', async () => {
     const mockGrupos = [
       {
         id: 'g1',
@@ -39,6 +39,6 @@ describe('PaginaRegistro', () => {
     expect(element).toBeTruthy()
 
     const html = renderToStaticMarkup(element)
-    expect(html).toContain('formulario-registro')
+    expect(html).toContain('formulario-perfil')
   })
 })

@@ -8,6 +8,7 @@ import { formatArs } from '@/lib/dinero'
 import { prisma } from '@/lib/prisma'
 import { CancelarSuscripcion } from '@/components/panel/CancelarSuscripcion'
 import { FormularioPago } from '@/components/panel/FormularioPago'
+import { FormularioPromo } from '@/components/panel/FormularioPromo'
 import { PanelNavbar } from '@/components/panel/PanelNavbar'
 import {
   requisitosParaMostrar,
@@ -23,20 +24,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-/**
- * Suscripción del panel.
- *
- * `force-dynamic` porque el precio sale de la base y el admin lo cambia, y
- * porque el estado de la suscripción cambia con cada webhook. Con estático, el
- * precio de hoy se serviría del build de ayer, que es exactamente el bug que el
- * módulo 2.2 existe para evitar.
- *
- * La pantalla tiene tres versiones según el estado, y el orden de las
- * condiciones importa: primero lo que falta para poder pagar, después el botón,
- * y recién al final el historial. Un profesional que todavía no puede pagar no
- * necesita ver la tabla de pagos; uno que ya paga no necesita un checklist de
- * cinco puntos que ya cumplió.
- */
 export const dynamic = 'force-dynamic'
 
 /**
@@ -68,22 +55,16 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
 
   const id = perfilId?.id ?? null
 
-  /**
-   * Las cuatro lecturas van juntas.
-   *
-   * Un `Promise.all` y no cuatro `await` secuenciales: cada consulta va a la red
-   * y awaited una detrás de otra la pantalla tarda cuatro viajes de ida y vuelta
-   * en un celular del interior, que es de dónde nos miran.
-   */
   const [plan, faltantes, suscripcion, pagos] = await Promise.all([
     getCurrentPlan(),
-    id ? requisitosDePago(id) : Promise.resolve(['PERFIL_INCOMPLETO' as RequisitoPago]),
+    id ? requisitosDePago(id) : Promise.resolve(['PERFIL_INCOMPLETO'] as RequisitoPago[]),
     id ? obtenerSuscripcion(id) : Promise.resolve(null),
     id ? listarPagos(id) : Promise.resolve([]),
   ])
 
   const activa = suscripcion?.status === SubscriptionStatus.ACTIVE
-  const esPromo = activa && suscripcion?.mpPreapprovalId === null
+  const pendiente = suscripcion?.status === SubscriptionStatus.PENDING
+  const promoReservada = pendiente && suscripcion?.pendingCouponCode !== null
   const requisitos = requisitosParaMostrar(faltantes)
 
   return (
@@ -97,7 +78,7 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
-        <PanelNavbar />
+        <PanelNavbar mostradorDatosFiscales={false} />
 
         <div className="min-w-0 space-y-6">
           {/* Precio grande. Sale del formateador y del plan de la base: si acá
@@ -114,12 +95,6 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
                 </p>
               </>
             ) : (
-              /*
-                Sin plan no hay precio que mostrar, y no se muestra uno de
-                respaldo. Decirle a alguien $10.000 sin que ese sea el precio
-                real es peor que decirle que todavía no hay nada disponible:
-                el profesional organiza su plata alrededor de ese número.
-              */
               <p className="error">
                 No hay ningún plan disponible en este momento. Escribinos y te avisamos apenas
                 haya.
@@ -130,12 +105,11 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
           {/*
             Requisitos primero, siempre. Es lo que decide si el botón aparece, y
             que aparezca deshabilitado sin decir por qué sería un laberinto: el
-            profesional aprieta, no pasa nada y no sabe qué hacer.
+            profesional apriza, no pasa nada y no sabe qué hacer.
           */}
           {requisitos.length > 0 && (
             <div className="tarjeta border-l-4 border-l-[12px] p-6">
               <h2 className="text-xl font-black uppercase">Para pagar necesitamos esto</h2>
-
               <ul className="mt-4 space-y-3">
                 {requisitos.map((requisito) => (
                   <li key={requisito.motivo} className="flex flex-wrap items-baseline gap-2">
@@ -155,17 +129,6 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
             </div>
           )}
 
-          {suscripcion?.status === SubscriptionStatus.PENDING && (
-            <div className="tarjeta border-l-4 border-l-[12px] p-6">
-              <p className="font-bold uppercase">Hay un pago sin terminar</p>
-              <p className="mt-2">
-                Empezaste a suscribirte y no completaste el pago. Podés retomarlo con el botón de
-                abajo: se cancela el intento anterior y se abre uno nuevo, así que no te queda nada
-                cobrando atrás.
-              </p>
-            </div>
-          )}
-
           {activa && suscripcion && (
             <div className="tarjeta p-6">
               <h2 className="text-xl font-black uppercase">Tu suscripción</h2>
@@ -178,57 +141,76 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
                   </dd>
                 </div>
 
-                {/* El monto congelado, no el del plan. Es la diferencia entre lo
-                    que se le promete a este profesional y lo que se está
-                    vendiendo hoy, y por eso van los dos. Durante una promo no
-                    se muestra: no hay precio que esté pagando. */}
-                {esPromo ? (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted">Promoción</dt>
-                    <dd className="font-bold">Meses gratis</dd>
-                  </div>
-                ) : (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted">Tu precio</dt>
-                    <dd className="font-bold">{formatArs(suscripcion.planAmount)}/mes</dd>
-                  </div>
-                )}
-
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted">
-                    {esPromo ? 'Gratis hasta' : suscripcion.cancelAtPeriodEnd ? 'Vence' : 'Se renueva'}
+                    {suscripcion.mpPreapprovalId === null ? 'Promoción' : 'Tu precio'}
                   </dt>
-                  <dd className="font-bold">{fecha(suscripcion.currentPeriodEnd)}</dd>
+                  <dd className="font-bold">
+                    {suscripcion.mpPreapprovalId === null
+                      ? 'Meses gratis'
+                      : `${formatArs(suscripcion.planAmount)}/mes`}
+                  </dd>
                 </div>
               </dl>
 
-              {esPromo ? (
-                <p className="exito mt-6">
-                  Tenés el servicio gratis hasta el {fecha(suscripcion.currentPeriodEnd)}. Después
-                  vas a poder activar tu suscripción desde esta misma pantalla.
-                </p>
-              ) : suscripcion.cancelAtPeriodEnd ? (
-                <p className="exito mt-6">
-                  No se va a cobrar nada más. Tu perfil sigue apareciendo hasta el{' '}
-                  {fecha(suscripcion.currentPeriodEnd)}.
-                </p>
-              ) : (
-                <div className="mt-6">
-                  <CancelarSuscripcion />
-                </div>
-              )}
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">
+                  {suscripcion.mpPreapprovalId === null ? 'Gratis hasta' : suscripcion.cancelAtPeriodEnd ? 'Vence' : 'Se renueva'}
+                  {fecha(suscripcion.currentPeriodEnd)}
+                </dt>
+              </div>
+              {/* La línea de "Tu precio" se muestra solo si no es promo */}
             </div>
           )}
 
-          {!activa && requisitos.length === 0 && plan && (
+          {/*
+            Estado PENDING con promo reservada: mostrar cartel "promo reservada" sin formulario
+          */}
+          {promoReservada && (
+            <div className="tarjeta border-l-4 border-l-[12px] p-6 bg-noa-silver/30">
+              <h2 className="text-xl font-black uppercase">Promo reservada</h2>
+              <p className="mt-3 max-w-prose leading-relaxed">
+                Tenés un código promocional reservado. Cuando completes los requisitos que faltan,
+                la promo se activará automáticamente y tendrás el servicio gratis por el período
+                correspondiente. No se te cobra nada mientras tanto.
+              </p>
+            </div>
+          )}
+
+          {/* 
+            Estado PENDING sin requisitos: mostrar FormularioPago (checkout normal)
+          */}
+          {pendiente && !promoReservada && requisitos.length === 0 && plan && (
             <FormularioPago
+              condiciones={resumenCondiciones(plan.precio, plan.moneda)}
+              versionTerminos={VERSION_TERMINOS}
+              tipo="checkout"
+            />
+          )}
+
+          {/* 
+            Estado PENDING sin requisitos: mostrar FormularioPromo 
+          */}
+          {!activa && requisitos.length === 0 && plan && !promoReservada && (
+            <FormularioPromo
               condiciones={resumenCondiciones(plan.precio, plan.moneda)}
               versionTerminos={VERSION_TERMINOS}
             />
           )}
 
-          {/*
-            El historial va al final y solo si hay algo que mostrar. Un
+          {/* 
+            Estado PENDING sin requisitos: mostrar FormularioPago (checkout normal)
+          */}
+          {pendiente && !promoReservada && requisitos.length === 0 && plan && (
+            <FormularioPago
+              condiciones={resumenCondiciones(plan.precio, plan.moneda)}
+              versionTerminos={VERSION_TERMINOS}
+              tipo="checkout"
+            />
+          )}
+
+          {/* 
+            El historial va al final y solo si hay algo que mostrar. Un 
             "Todavía no tenés pagos" debajo de un botón de pago confunde más de
             lo que informa: el profesional no sabe si el listado falló o si es
             que nunca pagó.
@@ -248,24 +230,6 @@ export default async function PaginaSuscripcion(): Promise<React.ReactElement> {
                       <span>
                         {fecha(pago.pagadoEn ?? pago.creadoEn)} · {pago.estado}
                       </span>
-
-                      {/* El comprobante se baja de la ruta que lo genera al vuelo.
-                          Si el pago todavía no tiene factura emitida no se muestra
-                          nada: un enlace roto es peor que la ausencia del enlace. */}
-                      {pago.factura?.pdfUrl && pago.factura.estado === InvoiceStatus.ISSUED ? (
-                        <a
-                          href={pago.factura.pdfUrl}
-                          className="font-bold underline underline-offset-2"
-                        >
-                          Comprobante
-                        </a>
-                      ) : (
-                        pago.factura &&
-                        (pago.factura.estado === InvoiceStatus.PENDING ||
-                          pago.factura.estado === InvoiceStatus.FAILED) && (
-                          <span>Comprobante en proceso</span>
-                        )
-                      )}
                     </span>
                   </li>
                 ))}

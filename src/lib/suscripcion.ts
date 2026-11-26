@@ -53,6 +53,7 @@ export type RequisitoPago =
 export type EntradaRequisitos = {
   emailVerificado: boolean
   whatsappVerificado: boolean
+  esEmpresa: boolean
   tieneRubroPrincipal: boolean
   /** Nombre no vacío, ciudad cargada y descripción de 20 caracteres o más. */
   perfilCompleto: boolean
@@ -105,6 +106,9 @@ export function evaluarRequisitosPago(entrada: EntradaRequisitos): RequisitoPago
 
   if (!entrada.emailVerificado) faltantes.push('EMAIL_SIN_VERIFICAR')
   if (!entrada.whatsappVerificado) faltantes.push('WHATSAPP_SIN_VERIFICAR')
+  if (entrada.esEmpresa && !entrada.tieneDatosFiscales) {
+    faltantes.push('DATOS_FISCALES_INCOMPLETOS')
+  }
   if (!entrada.tieneRubroPrincipal) faltantes.push('SIN_RUBRO_PRINCIPAL')
   if (!entrada.perfilCompleto) faltantes.push('PERFIL_INCOMPLETO')
   if (!entrada.tieneDatosFiscales) faltantes.push('DATOS_FISCALES_INCOMPLETOS')

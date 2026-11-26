@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-import { FormularioRegistro } from '@/components/registro/FormularioRegistro'
+import { FormularioPerfil } from '@/components/perfil/FormularioPerfil'
 import { obtenerCatalogoPerfil } from '@/services/catalogo'
+import { VERSION_TERMINOS } from '@/lib/suscripcion'
 
 // Render por request: si se prerenderiza, Next no inyecta el nonce de la CSP.
 export const dynamic = 'force-dynamic'
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 }
 
 export default async function PaginaRegistro(): Promise<React.ReactElement> {
-  const { grupos } = await obtenerCatalogoPerfil()
+  const { grupos, ciudades } = await obtenerCatalogoPerfil()
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12 sm:py-20">
@@ -30,7 +31,7 @@ export default async function PaginaRegistro(): Promise<React.ReactElement> {
       </p>
 
       <div className="mt-10">
-        <FormularioRegistro grupos={grupos} />
+        <FormularioPerfil modo="alta" grupos={grupos} ciudades={ciudades} versionTerminos={VERSION_TERMINOS} />
       </div>
 
       <p className="mt-10 border-t-[3px] border-ink pt-6 text-sm">

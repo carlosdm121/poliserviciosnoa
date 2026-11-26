@@ -50,6 +50,7 @@ export async function obtenerEstadoPanel(userId: string): Promise<EstadoPanel> {
           cancelAtPeriodEnd: true,
           currentPeriodEnd: true,
           graceUntil: true,
+          pendingCouponCode: true,
         },
       },
     },
@@ -67,6 +68,7 @@ export async function obtenerEstadoPanel(userId: string): Promise<EstadoPanel> {
       existePerfil: false,
       emailVerificado: false,
       email: usuario?.email ?? '',
+      promoReservada: false,
       pasos: [],
       perfil: null,
     }
@@ -92,10 +94,13 @@ export async function obtenerEstadoPanel(userId: string): Promise<EstadoPanel> {
     resoluble: MOTIVOS_RESOLUBLES.has(motivo),
   }))
 
+  const promoReservada = perfil.subscription?.pendingCouponCode !== null
+
   return {
     existePerfil: true,
     emailVerificado: usuario.emailVerified !== null,
     email: usuario.email,
+    promoReservada,
     pasos,
     perfil: {
       id: perfil.id,
@@ -113,6 +118,7 @@ export type EstadoPanel = {
   existePerfil: boolean
   emailVerificado: boolean
   email: string
+  promoReservada: boolean
   pasos: Paso[]
   perfil: {
     id: string

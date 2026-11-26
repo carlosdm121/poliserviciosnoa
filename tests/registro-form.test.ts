@@ -2,8 +2,8 @@ import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-import { FormularioRegistro } from '@/components/registro/FormularioRegistro'
-import type { GrupoCatalogo } from '@/services/catalogo'
+import { FormularioPerfil } from '@/components/perfil/FormularioPerfil'
+import type { CiudadCatalogo, GrupoCatalogo } from '@/services/catalogo'
 
 vi.mock('next/link', () => ({
   default: ({ href, className, children }: { href: string; className?: string; children: ReactNode }) =>
@@ -13,6 +13,8 @@ vi.mock('next/link', () => ({
 vi.mock('next-auth/react', () => ({ signIn: vi.fn() }))
 
 vi.mock('@/app/actions/registro', () => ({ registrarProfesional: vi.fn() }))
+
+vi.mock('@/app/actions/perfil', () => ({ guardarDatosPerfil: vi.fn() }))
 
 const grupos: GrupoCatalogo[] = [
   {
@@ -36,49 +38,87 @@ const grupos: GrupoCatalogo[] = [
       },
     ],
   },
+  {
+    id: 'g2',
+    nombre: 'Salud',
+    icono: '🏥',
+    rubros: [],
+  },
 ]
 
-function render(): string {
-  return renderToStaticMarkup(createElement(FormularioRegistro, { grupos }))
+function renderAlta(): string {
+  // Cities mock for modo alta
+  const mockCiudades = [
+    { id: 'c1', nombre: 'Salta', provincia: 'Salta' },
+    { id: 'c2', nombre: 'Capital', provincia: 'Salta' },
+  ]
+  return renderToStaticMarkup(
+    createElement(FormularioPerfil, { modo: 'alta', grupos, ciudades: mockCiudades, versionTerminos: '2026-11-18' })
+  )
 }
 
-describe('FormularioRegistro con rubros', () => {
-  it('renderiza el selector principal y el secundario', () => {
-    const html = render()
+function renderEdicion(): string {
+  // Empty datos for edicion mode - uses perfilVacio, which has no cities
+  const mockCiudades: CiudadCatalogo[] = [
+    { id: 'c1', nombre: 'Salta', provincia: 'Salta' },
+    { id: 'c2', nombre: 'Capital', provincia: 'Salta' },
+  ]
+  return renderToStaticMarkup(
+    createElement(FormularioPerfil, { modo: 'edicion', grupos, ciudades: mockCiudades })
+  )
+}
 
-    expect(html).toContain('Rubro principal')
-    expect(html).toContain('Rubro secundario')
+describe('FormularioPerfil con modo alta', () => {
+  it('renderiza el formulario de alta con sección "Tu cuenta"', () => {
+    const html = renderAlta()
+
+    // Deben existir los campos de cuenta
+    expect(html).toContain('Tu cuenta')
+    expect(html).toContain('Quién sos')
+    expect(html).toContain('email')
+    expect(html).toContain('password')
+    expect(html).toContain('whatsapp')
+    expect(html).toContain('aceptaTerminos')
+    expect(html).toContain('Crear mi cuenta')
+
+    // Deben ausentarse los campos de empresa
+    expect(html).not.toContain('Razón social')
+    expect(html).not.toContain('CUIT')
+    expect(html).not.toContain('Nombre comercial')
+    expect(html).not.toContain('Año de fundación')
+    expect(html).not.toContain('Sitio web')
   })
 
-  it('muestra las etiquetas de ayuda de cada selector', () => {
-    const html = render()
+  it('oculta los campos de catálogo en modo alta', () => {
+    const html = renderAlta()
 
-    expect(html).toContain('Obligatorio: el rubro que aparecerá primero en las búsquedas')
-    expect(html).toContain('Opcional: otro rubro en el que también trabajás.')
+    // En modo alta, los rubros están ocultos (solo en modo edicion)
+    expect(html).not.toContain('Rubro principal')
+    expect(html).not.toContain('Rubro secundario')
   })
 
-  it('lista los rubros del catálogo recibido', () => {
-    const html = render()
+  it('renderiza checkbox de términos con versión', () => {
+    const html = renderAlta()
 
-    expect(html).toContain('Electricista')
-    expect(html).toContain('Plomero')
-    expect(html).toContain('Oficios')
+    expect(html).toContain('Acepto los términos y condiciones (versión 2026-11-18)')
   })
 
-  it('marca el selector principal como requerido', () => {
-    const html = render()
+  it('no muestra pasos numéricos', () => {
+    const html = renderAlta()
 
-    // El segundo selector no lleva el asterisco; el principal sí.
-    const principal = html.slice(html.indexOf('Rubro principal'), html.indexOf('Rubro secundario'))
-    expect(principal).toContain('aria-hidden="true"')
+    // En modo alta no debe haber "Paso 1", "Paso 2", etc.
+    expect(html).not.toContain('Paso 1')
+    expect(html).not.toContain('Paso 2')
+    expect(html).not.toContain('Paso 3')
+    expect(html).not.toContain('Paso 4')
   })
+})
 
-  it('include los campos del formulario de alta', () => {
-    const html = render()
+describe('FormularioPerfil con modo edicion', () => {
+  it('renderiza el formulario de edición con datos básicos', () => {
+    const html = renderEdicion()
 
-    // En el nuevo schema los rubros viajan dentro del objeto perfil, no como
-    // inputs planos al final del formulario.
-    expect(html).toContain('name="password"')
-    expect(html).toContain('type="submit"')
+    expect(html).toContain('Guardar perfil')
+    expect(html).toContain('Quién sos')
   })
 })
