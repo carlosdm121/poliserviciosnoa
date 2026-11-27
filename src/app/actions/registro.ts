@@ -14,7 +14,7 @@ import { hashearPassword } from '@/lib/password'
 import { estaBloqueado } from '@/services/bloqueo'
 import { esEmailDesechable, registrarAltaDesdeIp, registrarRiesgo } from '@/services/riesgo'
 import { registroProfesionalSchema, type RegistroProfesionalInput } from '@/schemas'
-import { guardarPerfilEnTx } from '@/services/perfil'
+import { ErrorValidacionPerfil, guardarPerfilEnTx } from '@/services/perfil'
 import { err, ERROR_CODES, ok, type Resultado } from '@/types/resultado'
 
 /** Máximo de altas de profesional por IP y hora. Evita crear cuentas en masa. */
@@ -146,9 +146,19 @@ export async function registrarProfesional(
       })
 
       // 3. Perfil completo (rubros, ubicación, empresa, etc.)
-      await guardarPerfilEnTx(tx, profile.id, perfil)
+      const resultadoPerfil = await guardarPerfilEnTx(tx, profile.id, perfil)
+      // Si la validación falla y este Resultado se ignora, la transacción
+      // commitea el perfil mínimo sin rubros ni ubicación y el alta reporta
+      // éxito: se re-lanza para que revierta todo.
+      if (!resultadoPerfil.ok) {
+        throw new ErrorValidacionPerfil(resultadoPerfil.error)
+      }
     }, { timeout: 15000, maxWait: 5000 })
   } catch (error: unknown) {
+    if (error instanceof ErrorValidacionPerfil) {
+      return err(error.message, ERROR_CODES.VALIDACION)
+    }
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const objetivo = error.meta?.target
       // Los nombres son los de la columna unique real en el schema:

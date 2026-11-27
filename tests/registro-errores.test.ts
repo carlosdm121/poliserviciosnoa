@@ -52,10 +52,15 @@ vi.mock('@/services/riesgo', () => ({
   registrarRiesgo: vi.fn(),
 }))
 vi.mock('@/services/perfil', () => ({
+  // La clase tiene que existir en el mock: registro.ts la importa y hace
+  // `instanceof` adentro del catch.
+  ErrorValidacionPerfil: class extends Error {},
   guardarPerfilEnTx: vi.fn(async () => ({ ok: true, data: null })),
 }))
 
 import { registrarProfesional } from '@/app/actions/registro'
+import { guardarPerfilEnTx } from '@/services/perfil'
+import { err, ERROR_CODES } from '@/types/resultado'
 import type { RegistroProfesionalInput } from '@/schemas'
 
 const entrada: RegistroProfesionalInput = {
@@ -178,5 +183,23 @@ describe('registrarProfesional — transacción', () => {
       expect.any(Function),
       expect.objectContaining({ timeout: 15000, maxWait: 5000 }),
     )
+  })
+
+  it('si la validación de relaciones falla, revierte el alta y muestra el motivo', async () => {
+    mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        user: { create: mocks.userCreate.mockResolvedValue({ id: 'u1' }) },
+        profile: { create: mocks.profileCreate.mockResolvedValue({ id: 'p1' }) },
+      }),
+    )
+    vi.mocked(guardarPerfilEnTx).mockResolvedValueOnce(
+      err('Elegí hasta 8 ciudades.', ERROR_CODES.VALIDACION),
+    )
+
+    const r = await registrarProfesional(entrada)
+
+    if (r.ok) throw new Error('esperaba error')
+    expect(r.error).toBe('Elegí hasta 8 ciudades.')
+    expect(r.code).toBe('VALIDACION')
   })
 })

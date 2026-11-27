@@ -212,8 +212,11 @@ export async function guardarPerfil(
  * Existe como tipo propio porque no se puede lanzar el `err` del proyecto: eso
  * es un objeto de resultado, no una excepción, y dentro de una transacción hay
  * que provocar el rollback con una excepción de verdad.
+ *
+ * Se exporta para que `registrarProfesional` pueda re-lanzar el Resultado
+ * fallido de `guardarPerfilEnTx` y revertir el alta entera.
  */
-class ErrorValidacionPerfil extends Error {}
+export class ErrorValidacionPerfil extends Error {}
 
 /**
  * Revalida lo que Zod no puede: que los IDs existan, que pertenezcan al perfil
