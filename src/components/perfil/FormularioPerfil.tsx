@@ -181,6 +181,7 @@ export function FormularioPerfil({
         description: descripcion,
         company: {
           companyName: razonSocial,
+          cuit,
           // tradeName, teamSize, yearFounded, website: omitted -> schema defaults
         },
         ubicacion: {
@@ -357,38 +358,6 @@ export function FormularioPerfil({
               required
               placeholder="Mínimo 8 caracteres"
             />
-
-            <Button
-              type="submit"
-              variante="oscuro"
-              cargando={pendiente}
-              textoCargando="Creando cuenta..."
-              className="w-full"
-            >
-              Crear mi cuenta
-            </Button>
-          </div>
-
-          <p className="mt-4 text-sm text-muted">
-            Al crear la cuenta aceptás nuestros{' '}
-            <Link href="/terminos" className="font-bold underline">
-              términos y condiciones
-            </Link>{' '}
-            y la{' '}
-            <Link href="/privacidad" className="font-bold underline">
-              política de privacidad
-            </Link>
-            .
-          </p>
-
-          {/* Checkbox de términos con versión */}
-          <div className="mt-6">
-            <input
-              type="checkbox"
-              name="aceptaTerminos"
-              value="on"
-            />
-            Acepto los términos y condiciones (versión {versionTerminos || '?'})
           </div>
         </section>
       )}
@@ -457,9 +426,9 @@ export function FormularioPerfil({
       )}
 
       {/* ---------------------------------------------------------------- */}
-      {!esAlta && (
+      {(!esAlta || tipo === 'COMPANY') && (
         <section className="tarjeta p-6">
-          <p className="etiqueta">Paso 2</p>
+          {!esAlta && <p className="etiqueta">Paso 2</p>}
           <h2 className="mt-3 text-xl font-black uppercase">Datos de la empresa</h2>
 
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -470,13 +439,15 @@ export function FormularioPerfil({
               maxLength={120}
               ayuda="El nombre legal como figura en AFIP. No es el CUIT."
             />
-            <Input
-              label="Nombre comercial"
-              value={nombreComercial}
-              onChange={(e) => setNombreComercial(e.target.value)}
-              maxLength={120}
-              ayuda="Si es distinto de la razón social."
-            />
+            {!esAlta && (
+              <Input
+                label="Nombre comercial"
+                value={nombreComercial}
+                onChange={(e) => setNombreComercial(e.target.value)}
+                maxLength={120}
+                ayuda="Si es distinto de la razón social."
+              />
+            )}
             <Input
               label="CUIT"
               value={cuit}
@@ -485,48 +456,53 @@ export function FormularioPerfil({
               placeholder={cuit.length === 11 ? formatearCuit(cuit) : '34123456789'}
               ayuda="Con 30, 33 o 34 al principio."
             />
-            <label className="block space-y-1">
-              <span className="block text-sm font-bold">Tamaño del equipo</span>
-              <select
-                value={equipo}
-                onChange={(e) => setEquipo(e.target.value)}
-                className="campo"
-              >
-                <option value="">Elegí una opción</option>
-                <option value="T1_5">1 a 5 personas</option>
-                <option value="T6_20">6 a 20 personas</option>
-                <option value="T21_50">21 a 50 personas</option>
-                <option value="T50_PLUS">Más de 50 personas</option>
-              </select>
-            </label>
-            <Input
-              label="Año de fundación"
-              value={anio}
-              onChange={(e) => setAnio(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              inputMode="numeric"
-              ayuda="Opcional."
-            />
-            <Input
-              label="Sitio web"
-              value={sitio}
-              onChange={(e) => setSitio(e.target.value)}
-              placeholder="empresa.com.ar"
-              ayuda="Opcional."
-            />
+            {!esAlta && (
+              <>
+                <label className="block space-y-1">
+                  <span className="block text-sm font-bold">Tamaño del equipo</span>
+                  <select
+                    value={equipo}
+                    onChange={(e) => setEquipo(e.target.value)}
+                    className="campo"
+                  >
+                    <option value="">Elegí una opción</option>
+                    <option value="T1_5">1 a 5 personas</option>
+                    <option value="T6_20">6 a 20 personas</option>
+                    <option value="T21_50">21 a 50 personas</option>
+                    <option value="T50_PLUS">Más de 50 personas</option>
+                  </select>
+                </label>
+                <Input
+                  label="Año de fundación"
+                  value={anio}
+                  onChange={(e) => setAnio(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  inputMode="numeric"
+                  ayuda="Opcional."
+                />
+                <Input
+                  label="Sitio web"
+                  value={sitio}
+                  onChange={(e) => setSitio(e.target.value)}
+                  placeholder="empresa.com.ar"
+                  ayuda="Opcional."
+                />
+              </>
+            )}
           </div>
 
-          <p className="mt-6 text-sm text-muted">
-            La constancia de inscripción se sube cuando el administrador revise el perfil. Va en
-            almacenamiento privado y se borra después de la revisión.
-          </p>
+          {!esAlta && (
+            <p className="mt-6 text-sm text-muted">
+              La constancia de inscripción se sube cuando el administrador revise el perfil. Va en
+              almacenamiento privado y se borra después de la revisión.
+            </p>
+          )}
         </section>
       )}
 
       {/* ---------------------------------------------------------------- */}
-      {!esAlta && (
-        <section className="tarjeta p-6">
-          <p className="etiqueta">Paso 3</p>
-          <h2 className="mt-3 text-xl font-black uppercase">Dónde trabajás</h2>
+      <section className="tarjeta p-6">
+        {!esAlta && <p className="etiqueta">Paso 3</p>}
+        <h2 className="mt-3 text-xl font-black uppercase">Dónde trabajás</h2>
 
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <label className="block space-y-1">
@@ -563,71 +539,73 @@ export function FormularioPerfil({
             </label>
           </div>
 
-          <label className="mt-6 flex cursor-pointer items-center gap-3 font-bold">
-            <input
-              type="checkbox"
-              checked={todaProvincia}
-              onChange={(e) => setTodaProvincia(e.target.checked)}
-            />
-            Atiendo toda la provincia
-          </label>
+          {!esAlta && (
+            <>
+              <label className="mt-6 flex cursor-pointer items-center gap-3 font-bold">
+                <input
+                  type="checkbox"
+                  checked={todaProvincia}
+                  onChange={(e) => setTodaProvincia(e.target.checked)}
+                />
+                Atiendo toda la provincia
+              </label>
 
-          {!todaProvincia && provincia && (
-            <div className="mt-6">
-              <p className="text-sm font-bold">
-                Otras ciudades donde podés trabajar
-                <span className="ml-2 font-mono text-muted">
-                  {cobertura.length}/{LIMITES_PERFIL.ciudades}
-                </span>
-              </p>
-              <p className="mt-1 text-sm text-muted">La ciudad base ya está cubierta.</p>
+              {!todaProvincia && provincia && (
+                <div className="mt-6">
+                  <p className="text-sm font-bold">
+                    Otras ciudades donde podés trabajar
+                    <span className="ml-2 font-mono text-muted">
+                      {cobertura.length}/{LIMITES_PERFIL.ciudades}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-sm text-muted">La ciudad base ya está cubierta.</p>
 
-              <div className="mt-4 grid max-h-64 gap-2 overflow-y-auto border-[3px] border-ink p-4 sm:grid-cols-2">
-                {ciudadesDeProvincia
-                  .filter((c) => c.id !== ciudad)
-                  .map((c) => (
-                    <label key={c.id} className="flex cursor-pointer items-center gap-2">
+                  <div className="mt-4 grid max-h-64 gap-2 overflow-y-auto border-[3px] border-ink p-4 sm:grid-cols-2">
+                    {ciudadesDeProvincia
+                      .filter((c) => c.id !== ciudad)
+                      .map((c) => (
+                        <label key={c.id} className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={cobertura.includes(c.id)}
+                            onChange={() => alternarCobertura(c.id)}
+                          />
+                          {c.nombre}
+                        </label>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6">
+                <p className="text-sm font-bold">También atendés en otras provincias</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {PROVINCIAS_LISTA.filter((p) => p !== provincia).map((p) => (
+                    <label key={p} className="flex cursor-pointer items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={cobertura.includes(c.id)}
-                        onChange={() => alternarCobertura(c.id)}
+                        checked={otrasProvincias.includes(p)}
+                        onChange={() =>
+                          setOtrasProvincias((previas) =>
+                            previas.includes(p)
+                              ? previas.filter((x) => x !== p)
+                              : [...previas, p],
+                          )
+                        }
                       />
-                      {c.nombre}
+                      {PROVINCIAS[p].nombre}
                     </label>
                   ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
-
-          <div className="mt-6">
-            <p className="text-sm font-bold">También atendés en otras provincias</p>
-            <div className="mt-3 flex flex-wrap gap-3">
-              {PROVINCIAS_LISTA.filter((p) => p !== provincia).map((p) => (
-                <label key={p} className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={otrasProvincias.includes(p)}
-                    onChange={() =>
-                      setOtrasProvincias((previas) =>
-                        previas.includes(p)
-                          ? previas.filter((x) => x !== p)
-                          : [...previas, p],
-                      )
-                    }
-                  />
-                  {PROVINCIAS[p].nombre}
-                </label>
-              ))}
-            </div>
-          </div>
         </section>
-      )}
 
       {/* ---------------------------------------------------------------- */}
-      {!esAlta && (
-        <section className="tarjeta p-6">
-          <p className="etiqueta">Paso 4</p>
-          <h2 className="mt-3 text-xl font-black uppercase">Qué hacés</h2>
+      <section className="tarjeta p-6">
+        {!esAlta && <p className="etiqueta">Paso 4</p>}
+        <h2 className="mt-3 text-xl font-black uppercase">Qué hacés</h2>
 
           <p className="mt-3 text-sm text-muted">
             Rubros: <span className="font-mono">{rubroPrincipal ? 1 : 0}/{LIMITES_PERFIL.rubros}</span>
@@ -702,9 +680,29 @@ export function FormularioPerfil({
           )}
 
         </section>
-      )}
 
       {/* ---------------------------------------------------------------- */}
+      {esAlta && (
+        <>
+          <p className="text-sm text-muted">
+            Al crear la cuenta aceptás nuestros{' '}
+            <Link href="/terminos" className="font-bold underline">
+              términos y condiciones
+            </Link>{' '}
+            y la{' '}
+            <Link href="/privacidad" className="font-bold underline">
+              política de privacidad
+            </Link>
+            .
+          </p>
+
+          <label className="flex cursor-pointer items-center gap-3 font-bold">
+            <input type="checkbox" name="aceptaTerminos" value="on" />
+            Acepto los términos y condiciones (versión {versionTerminos || '?'})
+          </label>
+        </>
+      )}
+
       {error && (
         <p className="error" role="alert">
           {error}
@@ -721,10 +719,10 @@ export function FormularioPerfil({
         variante="oscuro"
         type="submit"
         cargando={pendiente}
-        textoCargando="Guardando…"
+        textoCargando={esAlta ? 'Creando cuenta…' : 'Guardando…'}
         className="w-full"
       >
-        Guardar perfil
+        {esAlta ? 'Crear mi cuenta' : 'Guardar perfil'}
       </Button>
     </form>
   )

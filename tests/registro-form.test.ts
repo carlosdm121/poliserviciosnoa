@@ -89,12 +89,23 @@ describe('FormularioPerfil con modo alta', () => {
     expect(html).not.toContain('Sitio web')
   })
 
-  it('oculta los campos de catálogo en modo alta', () => {
+  it('muestra las secciones del perfil pero oculta la cobertura adicional', () => {
     const html = renderAlta()
 
-    // En modo alta, los rubros están ocultos (solo en modo edicion)
-    expect(html).not.toContain('Rubro principal')
-    expect(html).not.toContain('Rubro secundario')
+    // El alta pide el perfil completo: rubros, provincia y ciudad base.
+    expect(html).toContain('Rubro principal')
+    expect(html).toContain('Dónde trabajás')
+    expect(html).toContain('Provincia')
+    expect(html).toContain('Ciudad base')
+
+    // Lo que no se pide en el alta (spec: se completa desde el panel).
+    expect(html).not.toContain('Atiendo toda la provincia')
+    expect(html).not.toContain('Otras ciudades donde podés trabajar')
+    expect(html).not.toContain('También atendés en otras provincias')
+    expect(html).not.toContain('Nombre comercial')
+    expect(html).not.toContain('Tamaño del equipo')
+    expect(html).not.toContain('Año de fundación')
+    expect(html).not.toContain('Sitio web')
   })
 
   it('muestra el campo de descripción para escribir los 20 caracteres', () => {
