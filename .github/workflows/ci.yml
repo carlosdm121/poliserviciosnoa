@@ -50,6 +50,9 @@ jobs:
 
       - name: Build de Next.js
         env:
+          # Sin base corriendo en CI: migrate deploy se saltea (solo corre en
+          # Vercel, donde DATABASE_URL apunta a la base real). El paso "verificar"
+          # de más abajo levanta un PostgreSQL efímero y valida el schema.
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test_db"
           NEXTAUTH_SECRET: "dummy_secret_key_genera_una_larga_de_prueba"
           RESEND_API_KEY: "re_dummy_key"
@@ -63,7 +66,10 @@ jobs:
           PHONE_HASH_PEPPER: "0123456789abcdef0123456789abcdef"
           DATA_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
           CRON_SECRET: "dummy_cron_secret"
-        run: npm run build
+        # `npm run build` incluye migrate deploy, que necesita una base real:
+        # en CI no la hay (el PostgreSQL efímero recién lo levanta el paso
+        # "verificar"). Acá solo se valida que el bundle compila.
+        run: npx next build
 
       - name: Escanear secretos en bundle del cliente (punto 1)
         run: npx tsx scripts/check-client-bundle.ts
