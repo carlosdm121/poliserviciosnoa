@@ -159,11 +159,14 @@ export function FormularioPerfil({
     setError(null)
     setGuardado(false)
 
-    const revision = revisarDescripcion(descripcion)
+    // Solo validamos descripción en modo edición; en alta no hay campo de descripción.
+    if (!esAlta) {
+      const revision = revisarDescripcion(descripcion)
 
-    if (!revision.ok && revision.detalle) {
-      setError(revision.detalle)
-      return
+      if (!revision.ok && revision.detalle) {
+        setError(revision.detalle)
+        return
+      }
     }
 
     // Modo alta: construye payload plano para registrarProfesional
