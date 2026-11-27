@@ -112,6 +112,11 @@ export async function registrarProfesional(
   // Slug único.
   const slug = generarSlugPerfil(name)
 
+  // Fuera de la transacción: bcryptjs (costo 12) tarda ~300 ms y es puro CPU.
+  // Adentro se comía el timeout por defecto de 5 s y la transacción moría con
+  // P2028. Mismo criterio que crear-perfil.ts.
+  const passwordHash = await hashearPassword(password)
+
   // Dentro de una única transacción: User + Profile + guardarPerfilEnTx.
   try {
     await prisma.$transaction(async (tx) => {
@@ -119,7 +124,7 @@ export async function registrarProfesional(
       const user = await tx.user.create({
         data: {
           email,
-          passwordHash: await hashearPassword(password),
+          passwordHash,
           name,
           role: 'PROFESSIONAL',
           emailVerified: null,
@@ -142,34 +147,49 @@ export async function registrarProfesional(
 
       // 3. Perfil completo (rubros, ubicación, empresa, etc.)
       await guardarPerfilEnTx(tx, profile.id, perfil)
-    })
+    }, { timeout: 15000, maxWait: 5000 })
   } catch (error: unknown) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const objetivo = error.meta?.target
+      // Los nombres son los de la columna unique real en el schema:
+      // `whatsappHash`, `cuitHash` y `slug`. Comparar con 'whatsapp' o 'cuit'
+      // (sin el sufijo) nunca matcheaba y todo caía en el mensaje genérico.
+      const campos = Array.isArray(objetivo) ? objetivo.map(String) : []
 
-      if (Array.isArray(objetivo) && objetivo.includes('email')) {
+      if (campos.includes('email')) {
         return err(
           'Ya existe una cuenta con ese email. Probá entrar en lugar de registrarte.',
           ERROR_CODES.DUPLICADO,
         )
       }
 
-      if (Array.isArray(objetivo) && (objetivo.includes('whatsappE164') || objetivo.includes('whatsapp'))) {
+      if (campos.includes('whatsappE164') || campos.includes('whatsappHash')) {
         return err(
           'Ese número de WhatsApp ya está en un perfil. Cada número puede tener un solo perfil.',
           ERROR_CODES.DUPLICADO,
         )
       }
 
-      if (Array.isArray(objetivo) && objetivo.includes('cuit')) {
+      if (campos.includes('cuitHash')) {
         return err(
           'Ese CUIT ya está en otro perfil. Cada empresa puede tener un solo perfil.',
           ERROR_CODES.DUPLICADO,
         )
       }
+
+      if (campos.includes('slug')) {
+        // El sufijo del slug es aleatorio: un reintento genera otro distinto.
+        return err('Ese nombre ya está en uso. Probá de nuevo.', ERROR_CODES.DUPLICADO)
+      }
     }
 
-    logger.error('registroProfesional: error inesperado', { error, email })
+    logger.error('registroProfesional: error inesperado', {
+      error,
+      // `name` + `message` no traen el código de Prisma (P2002, P2028...):
+      // sin esto, en los logs de Vercel se ve el error pero no la causa.
+      codigo: (error as { code?: string }).code,
+      email,
+    })
     return err('No pudimos crear tu cuenta. Probá de nuevo en un rato.', ERROR_CODES.DESCONOCIDO)
   }
 
@@ -186,7 +206,10 @@ export async function registrarProfesional(
     } catch (rollbackError) {
       logger.error('registroProfesional: rollback fallido', { originalError: error, rollbackError })
     }
-    logger.error('registroProfesional: no se pudo enviar el email de verificación', { error })
+    logger.error('registroProfesional: no se pudo enviar el email de verificación', {
+      error,
+      codigo: (error as { code?: string }).code,
+    })
     return err('No pudimos crear tu cuenta. Probá de nuevo en un rato.', ERROR_CODES.ERROR_EXTERNO)
   }
 
