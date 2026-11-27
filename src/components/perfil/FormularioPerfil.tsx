@@ -159,14 +159,11 @@ export function FormularioPerfil({
     setError(null)
     setGuardado(false)
 
-    // Solo validamos descripción en modo edición; en alta no hay campo de descripción.
-    if (!esAlta) {
-      const revision = revisarDescripcion(descripcion)
+    const revision = revisarDescripcion(descripcion)
 
-      if (!revision.ok && revision.detalle) {
-        setError(revision.detalle)
-        return
-      }
+    if (!revision.ok && revision.detalle) {
+      setError(revision.detalle)
+      return
     }
 
     // Modo alta: construye payload plano para registrarProfesional
@@ -306,6 +303,25 @@ export function FormularioPerfil({
               onChange={(e) => setNombre(e.target.value)}
               maxLength={80}
               ayuda="Así te van a encontrar en las búsquedas."
+            />
+
+            <Textarea
+              label="Contá qué hacés"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              rows={5}
+              maxLength={600}
+              placeholder="Ej: Hago instalaciones de gas y agua en Capital, con 15 años de oficio."
+              ayuda={
+                revisarDescripcion(descripcion).ok
+                  ? 'Sin teléfono, links ni usuarios: los clientes te escriben por acá.'
+                  : (revisarDescripcion(descripcion).detalle ?? '')
+              }
+              error={
+                descripcion.length > 10 && !revisarDescripcion(descripcion).ok
+                  ? (revisarDescripcion(descripcion).detalle ?? '')
+                  : undefined
+              }
             />
 
             <Input

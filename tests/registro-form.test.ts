@@ -97,6 +97,13 @@ describe('FormularioPerfil con modo alta', () => {
     expect(html).not.toContain('Rubro secundario')
   })
 
+  it('muestra el campo de descripción para escribir los 20 caracteres', () => {
+    const html = renderAlta()
+
+    expect(html).toContain('Contá qué hacés')
+    expect(html).toContain('textarea')
+  })
+
   it('renderiza checkbox de términos con versión', () => {
     const html = renderAlta()
 
